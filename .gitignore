@@ -1,0 +1,18 @@
+# Docker data
+postgres-data/
+redis-data/
+
+# Environment (Sensitive)
+.env
+
+# Temporary debug files
+*.txt
+
+# n8n runtime data
+n8n/
+logs/
+backups/
+
+# System
+.DS_Store
+Thumbs.db

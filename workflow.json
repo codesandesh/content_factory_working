@@ -1,0 +1,1716 @@
+{
+  "name": "Viral Content Factory - Production Level",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## \ud83c\udfaf STAGE 1: CONTENT DISCOVERY\n\n",
+        "height": 864,
+        "width": 2360,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -16720,
+        13584
+      ],
+      "typeVersion": 1,
+      "id": "32fab7c2-b702-4c34-82ab-02c2e4443e9a",
+      "name": "STAGE 1 - Content Discovery"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -16512,
+        14000
+      ],
+      "id": "85a3b36d-ea8c-4866-875c-10034fce321f",
+      "name": "Daily Trigger",
+      "notes": "Runs daily at 8 AM to discover viral content"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trigger-content-factory",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -16512,
+        13792
+      ],
+      "id": "webhook-trigger-id",
+      "name": "Webhook Trigger",
+      "notes": "Allows external triggering via POST request to: http://your-host/webhook/trigger-content-factory"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_INSPIRATION }}",
+          "mode": "id"
+        },
+        "filterByFormula": "AND({Platform} = \"Instagram\", {Status} = \"Listening\")",
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "28050370-bdad-48c5-9a2e-38cc7ebf2f4e",
+      "name": "Get Instagram Sources",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -16288,
+        13808
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_INSPIRATION }}",
+          "mode": "id"
+        },
+        "filterByFormula": "AND({Platform} = \"LinkedIn\", {Status} = \"Listening\")",
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "1d68d95b-72a5-419b-969a-623bfd55d0a8",
+      "name": "Get LinkedIn Sources",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -16288,
+        14000
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_INSPIRATION }}",
+          "mode": "id"
+        },
+        "filterByFormula": "AND({Platform} = \"Reddit\", {Status} = \"Listening\")",
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "c4e3744f-9153-44d8-8233-beba9012f980",
+      "name": "Get Reddit Sources",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -16288,
+        14192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Instagram Data - Strict Viral Hunt\nconsole.log(\"[DEBUG] Node Started: Process Instagram Data\");\n\nconst output = [];\nconst seenIds = new Set(); // Track unique post IDs\n\nconst fifteenDaysAgo = new Date();\nfifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);\n\nfor (const item of $input.all()) {\n  const postId = item.json.id || item.json.shortCode;\n  \n  // DEDUPLICATION: Skip if we've already seen this post\n  if (seenIds.has(postId)) {\n    continue;\n  }\n\n  // 1. Get Threshold SPECIFIC to this item's source\n  // In n8n, $node[\"Node Name\"].json refers to the input item that triggered this specific execution\n  const source = $node[\"Get Instagram Sources\"].json;\n  const rawThreshold = source[\"Minimum Engagement Threshold\"] || source.Minimum_Engagement_Threshold || source.threshold;\n  let threshold = Number(rawThreshold) || 500;\n  \n  const likes = Number(item.json.likesCount) || 0;\n  const comments = Number(item.json.commentsCount) || 0;\n  const views = Number(item.json.videoPlayCount) || Number(item.json.videoViewCount) || 0;\n  const isReel = item.json.productType === 'clips';\n  const postDate = new Date(item.json.timestamp);\n  const shortCode = item.json.shortCode;\n  \n  // VIRAL FORMULA: Views are weighted 5%, Comments 300%, Likes 100%\n  const engagementScore = (likes * 1) + (comments * 3) + (views * 0.05);\n  \n  const dateValid = postDate >= fifteenDaysAgo;\n  const scoreValid = engagementScore >= threshold;\n  \n  if (!scoreValid || !dateValid) {\n    continue;\n  }\n\n  seenIds.add(postId);\n\n  let postUrl = item.json.url;\n  if (shortCode) {\n    postUrl = isReel ? `https://www.instagram.com/reels/${shortCode}/` : `https://www.instagram.com/p/${shortCode}/`;\n  }\n\n  output.push({\n    json: {\n      platform: 'Instagram',\n      post_id: postId,\n      post_url: postUrl,\n      content: item.json.caption || '',\n      engagement_score: Math.round(engagementScore),\n      likes: likes,\n      comments: comments,\n      views: views,\n      created_at: item.json.timestamp,\n      post_type: isReel ? 'Reel' : item.json.type,\n      is_reel: isReel,\n      raw_data: item.json,\n      threshold_applied: threshold,\n      source_name: source.Name\n    }\n  });\n}\n\nconsole.log(`[DEBUG] Node Finished. High-Quality Count: ${output.length}`);\nreturn output.sort((a, b) => b.json.engagement_score - a.json.engagement_score);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -15616,
+        13808
+      ],
+      "id": "914aca15-02a0-4541-9ffe-8a79bc3e02b4",
+      "name": "Process Instagram Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process LinkedIn Data - Viral Filtering\nconsole.log(\"[DEBUG] Node Started: Process LinkedIn Data\");\n\nconst output = [];\n\nfor (const item of $input.all()) {\n  // 1. Get Threshold from the specific source\n  const source = $node[\"Get LinkedIn Sources\"].json;\n  const rawThreshold = source[\"Minimum Engagement Threshold\"] || source.Minimum_Engagement_Threshold || source.threshold;\n  let threshold = Number(rawThreshold) || 100;\n\n  const reactions = Number(item.json.numReactions) || 0;\n  const comments = Number(item.json.numComments) || 0;\n  const shares = Number(item.json.numShares) || 0;\n  \n  // Engagement score formula\n  const engagementScore = (reactions * 1) + (comments * 5) + (shares * 10);\n  \n  if (engagementScore < threshold || (reactions < 5 && comments < 2)) {\n    continue;\n  }\n\n  output.push({\n    json: {\n      platform: 'LinkedIn',\n      post_id: item.json.id,\n      post_url: item.json.postUrl,\n      content: item.json.text || '',\n      engagement_score: Math.round(engagementScore),\n      reactions: reactions,\n      comments: comments,\n      shares: shares,\n      author: item.json.authorName || '',\n      raw_data: item.json,\n      source_name: source.Name\n    }\n  });\n}\n\nconsole.log(`[DEBUG] LinkedIn Finished. Viral Count: ${output.length}`);\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -15616,
+        14000
+      ],
+      "id": "a1d2fb6b-5425-4509-8e78-6f8998d2a4b4",
+      "name": "Process LinkedIn Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Reddit Data - Viral Filtering\nconsole.log(\"[DEBUG] Node Started: Process Reddit Data\");\n\nconst output = [];\n\nfor (const item of $input.all()) {\n  // 1. Get Threshold from the specific source\n  const source = $node[\"Get Reddit Sources\"].json;\n  const rawThreshold = source[\"Minimum Engagement Threshold\"] || source.Minimum_Engagement_Threshold || source.threshold;\n  let threshold = Number(rawThreshold) || 150;\n\n  const upvotes = Number(item.json.score) || 0;\n  const comments = Number(item.json.numComments) || 0;\n  \n  // Engagement score formula\n  const engagementScore = (upvotes * 1) + (comments * 2);\n  \n  if (engagementScore < threshold || upvotes < 50) {\n    continue;\n  }\n\n  output.push({\n    json: {\n      platform: 'Reddit',\n      post_id: item.json.id,\n      post_url: item.json.url,\n      content: `${item.json.title || ''}\\n\\n${item.json.selfText || ''}`,\n      engagement_score: Math.round(engagementScore),\n      upvotes: upvotes,\n      comments: comments,\n      subreddit: item.json.subredditName,\n      author: item.json.author,\n      raw_data: item.json,\n      source_name: source.Name\n    }\n  });\n}\n\nconsole.log(`[DEBUG] Reddit Finished. Viral Count: ${output.length}`);\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -15616,
+        14192
+      ],
+      "id": "6e30e631-38fc-41ec-9abb-2194c614eb61",
+      "name": "Process Reddit Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Select top 5 posts across all platforms\n\n\n// Ensure we only have $input.all() with engagement\nconst validItems = $input.all().filter(item => (item.json.engagement_score || 0) > 0);\n\n// Sort by engagement score descending\nconst sorted = validItems.sort((a, b) => {\n  return (b.json.engagement_score || 0) - (a.json.engagement_score || 0);\n});\n\n// Get top 5\nreturn sorted.slice(0, 5);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -15168,
+        13904
+      ],
+      "id": "d3c7b359-84b6-4ed5-9438-5091f2980c4c",
+      "name": "Select Top 5 Viral Posts"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# ScaleBuild AI - Viral Content Analyst\n\n## Viral DNA\n- **Platform**: {{ $json.platform }}\n- **Post ID**: {{ $json.post_id }}\n- **Content**: {{ $json.content }}\n- **Views**: {{ $json.views }}\n- **Likes**: {{ $json.likes }}\n- **Comments**: {{ $json.comments }}\n- **Engagement Score**: {{ $json.engagement_score }}\n\n## Task\nAnalyze this post and reverse-engineer its viral chemistry. Output your analysis as a PURE JSON object.\n\n## Output Format\nReturn ONLY a valid JSON object. Do NOT include markdown code blocks or any text before/after the JSON.\n\n{\n  \"viral_score\": [0-100],\n  \"hook_pattern\": \"Short description of the opening trigger\",\n  \"content_structure\": \"Overall narrative flow\",\n  \"emotional_triggers\": \"Top 3 emotions triggered\",\n  \"viral_elements\": \"Core psychological triggers\",\n  \"script_framework\": \"The logical logic used\"\n}",
+        "hasOutputParser": false,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        -14944,
+        13904
+      ],
+      "id": "eb14f574-b173-43f0-9dee-4aa5bacfc5d7",
+      "name": "Analyze Viral Content",
+      "onError": "continue",
+      "settings": {
+        "errorHandling": "continueRegular"
+      }
+    },
+    {
+      "parameters": {
+        "model": "gemini-2.0-flash-exp",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -14944,
+        14128
+      ],
+      "id": "13546cb0-08ae-4ba1-a112-a9d636994835",
+      "name": "Gemini 2.0"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge AI Analysis with Original Post Data\n// This node receives parsed AI data and merges it with original post data from Select Top 5\nconst parsedItems = $input.all();\nconst output = [];\n\nfor (let i = 0; i < parsedItems.length; i++) {\n  const parsedData = parsedItems[i].json;\n  \n  // Get original post data from the Select Top 5 Viral Posts node\n  let originalPost = {};\n  try {\n    const allPosts = $(\"Select Top 5 Viral Posts\").all();\n    originalPost = allPosts[i]?.json || {};\n  } catch (e) {\n    try {\n      originalPost = $items(\"Select Top 5 Viral Posts\")[i]?.json || {};\n    } catch (e2) {\n      // Last resort: use data from the parsed item itself (it may have been carried forward)\n      originalPost = {};\n    }\n  }\n  \n  // Merge: Original post data FIRST, then AI analysis on top\n  output.push({\n    json: {\n      // Original post fields\n      platform: originalPost.platform || parsedData.platform || '',\n      post_id: originalPost.post_id || parsedData.post_id || '',\n      post_url: originalPost.post_url || parsedData.post_url || '',\n      content: originalPost.content || parsedData.content || '',\n      engagement_score: originalPost.engagement_score || parsedData.engagement_score || 0,\n      likes: originalPost.likes || parsedData.likes || 0,\n      comments: originalPost.comments || parsedData.comments || 0,\n      views: originalPost.views || parsedData.views || 0,\n      created_at: originalPost.created_at || parsedData.created_at || '',\n      post_type: originalPost.post_type || parsedData.post_type || '',\n      // AI Analysis fields\n      viral_score: parsedData.viral_score || 0,\n      hook_pattern: parsedData.hook_pattern || '',\n      content_structure: parsedData.content_structure || '',\n      emotional_triggers: parsedData.emotional_triggers || '',\n      viral_elements: parsedData.viral_elements || '',\n      script_framework: parsedData.script_framework || '',\n      // Handle the specific column trailing space issue\n      Viral_Elements_With_Space: parsedData.viral_elements || ''\n    }\n  });\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -14768,
+        13904
+      ],
+      "id": "merge-ai-analysis-id",
+      "name": "Merge AI Analysis"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_VIRAL_DB }}",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ ($json.content || \"\").substring(0, 50) + '...' }}",
+            "Platform": "={{ $json.platform }}",
+            "Post_ID": "={{ $json.post_id }}",
+            "Post_URL": "={{ $json.post_url }}",
+            "Content": "={{ $json.content }}",
+            "Engagement_Score": "={{ $json.engagement_score }}",
+            "Likes_Reactions_Upvotes": "={{ $json.likes || $json.reactions || $json.upvotes || 0 }}",
+            "Comments": "={{ $json.comments || 0 }}",
+            "Shares_Awards": "={{ $json.shares || $json.views || 0 }}",
+            "Viral_Score": "={{ $json.viral_score }}",
+            "Hook_Pattern": "={{ $json.hook_pattern }}",
+            "Content_Structure": "={{ $json.content_structure }}",
+            "Emotional_Triggers": "={{ $json.emotional_triggers }}",
+            "Viral_Elements ": "={{ $json.Viral_Elements_With_Space }}",
+            "Script_Framework": "={{ $json.script_framework }}",
+            "Status": "Analyzed",
+            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}"
+          }
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -14592,
+        13904
+      ],
+      "id": "3e3e78c2-991f-4f73-9b21-941f60986b87",
+      "name": "Store in Viral Content DB"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter Stage 2 - Picks up posts ready for script generation\nconst allItems = $input.all();\nconst filtered = [];\n\nfor (const item of allItems) {\n  const fields = item.json.fields || {};\n  const status = fields.Status || item.json.Status || item.json.status || fields.status || '';\n  \n  if (status.toString().trim() === \"Generate Script\") {\n    filtered.push(item);\n  }\n}\n\nreturn filtered;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -16096,
+        14656
+      ],
+      "id": "6e952e2a-741f-4d21-8b4c-6cac129c76a8",
+      "name": "Filter: Status = Generate Script"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# ScaleBuild AI - Viral Script Architect\n\n## System Instructions\nYou are the Lead Content Strategist for **ScaleBuild AI**. Your goal is to take viral AI trends and remix them into a high-converting 20-second video advertisement for ScaleBuild AI.\n\n## Constraint: EXACT WORD COUNT\n- **Combined Hook + Main Content word count must be between 40 and 50 words.**\n- This is critical to hit the 20-second mark accurately.\n\n## Input - Viral DNA\n- **Original Content**: {{ $json.fields.Content }}\n- **Hook Used**: {{ $json.fields.Hook_Pattern }}\n\n## Task\nCreate a NEW, ORIGINAL script (20s) as a JSON object with a 'scenes' array for professional video editing.\n\n## Output Format\nReturn ONLY a valid JSON object. Do NOT include markdown backticks.\n\n{\n  \"script_title\": \"ScaleBuild AI - [Trend Name]\",\n  \"scenes\": [\n    {\n      \"type\": \"hook\",\n      \"text\": \"EXACT opening trigger (short, punchy)\",\n      \"visual\": \"Highly descriptive prompt for AI video generation\",\n      \"duration\": 3,\n      \"avatar_visible\": true\n    },\n    {\n      \"type\": \"main\",\n      \"text\": \"EXACT main value proposition (problem + solution)\",\n      \"visual\": \"Visual of automation/results\",\n      \"duration\": 15,\n      \"avatar_visible\": false\n    },\n    {\n      \"type\": \"cta\",\n      \"text\": \"EXACT call to action (short)\",\n      \"visual\": \"Clear CTA graphics\",\n      \"duration\": 2,\n      \"avatar_visible\": true\n    }\n  ],\n  \"tone\": \"Authoritative, Disruptive, Fast\",\n  \"target_platforms\": [\"Instagram\", \"TikTok\", \"YouTube Shorts\", \"LinkedIn\"],\n  \"estimated_duration\": 20\n}\n\n## Brand voice\nDirect, sophisticated, and obsessed with speed. Avoid generic filler words. Be disruptive.",
+        "hasOutputParser": false,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        -15856,
+        14544
+      ],
+      "id": "2fd173ee-f222-4970-b717-7abdc151cbbf",
+      "name": "Generate Video Script",
+      "settings": {
+        "errorHandling": "continueRegular"
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Advanced AI Script Parser - Aggregates scenes for Airtable storage\nconst allInputItems = $input.all();\nconst output = [];\n\nlet sourceItems = [];\ntry {\n  sourceItems = $node[\"Filter: Status = Generate Script\"].all();\n} catch (e) {}\n\nfor (let i = 0; i < allInputItems.length; i++) {\n  const item = allInputItems[i];\n  const rawText = item.json.text || '';\n  let parsedScript = {};\n\n  try {\n    parsedScript = JSON.parse(rawText);\n  } catch (e) {\n    const jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) parsedScript = JSON.parse(jsonMatch[0]);\n  }\n\n  if (parsedScript.scenes) {\n    // Aggregate scene text by type\n    const hook = parsedScript.scenes.filter(s => s.type === 'hook').map(s => s.text).join(' ');\n    const main = parsedScript.scenes.filter(s => s.type === 'main').map(s => s.text).join(' ');\n    const cta = parsedScript.scenes.filter(s => s.type === 'cta').map(s => s.text).join(' ');\n    const visuals = parsedScript.scenes.map(s => s.visual).join(' | ');\n    \n    const totalWords = (hook + ' ' + main).split(/\\s+/).filter(w => w.length > 0).length;\n    console.log(`[DEBUG] Script Parsed. Hook+Main Words: ${totalWords}`);\n\n    parsedScript.hook = hook;\n    parsedScript.main_content = main;\n    parsedScript.cta = cta;\n    parsedScript.visual_cues = visuals;\n  }\n\n  const sourceItem = sourceItems[i] || {};\n  const sourceId = sourceItem.json?.id || sourceItem.id || '';\n\n  output.push({\n    json: {\n      ...parsedScript,\n      source_record_id: sourceId\n    }\n  });\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -15680,
+        14656
+      ],
+      "id": "parse-ai-script-id",
+      "name": "Parse AI Script"
+    },
+    {
+      "parameters": {
+        "model": "gemini-2.0-flash-exp",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -15872,
+        14768
+      ],
+      "id": "b0000ff6-0eb8-4e76-ba99-b98e3a00cf2c",
+      "name": "Gemini 2.0 Script"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $json.script_title }}",
+            "Source_Content_ID": "={{ $json.source_record_id }}",
+            "Script_Title": "={{ $json.script_title }}",
+            "Hook": "={{ $json.hook }}",
+            "Main_Content": "={{ $json.main_content }}",
+            "CTA ": "={{ $json.cta }}",
+            "Visual_Cues": "={{ $json.visual_cues }}",
+            "Tone": "={{ $json.tone }}",
+            "Hashtags": "={{ Array.isArray($json.hashtags) ? $json.hashtags.join(', ') : ($json.hashtags || '') }}",
+            "Estimated_Duration": "={{ $json.estimated_duration }}",
+            "Target_Platforms ": "={{ Array.isArray($json.target_platforms) ? $json.target_platforms.join(', ') : $json.target_platforms }}",
+            "Status": "Pending Approval",
+            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}"
+          }
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -15520,
+        14656
+      ],
+      "id": "45860e49-ffd7-4dc9-9dcf-c3e81e80b3ab",
+      "name": "Store Script in Library"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-approved",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "Approved",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -16432,
+        15104
+      ],
+      "id": "44b75e78-a4ae-437c-bb9e-6e33352e6018",
+      "name": "Filter: Status = Approved"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Stage 3 Independent Script Preparation\n// We only depend on data from the Airtable node in this stage\n\n// 1. Extraction with field-safety (handles both direct and .fields nesting)\nconst f = $json.fields || $json;\n\nconst visualCues = f.Visual_Cues || 'Highly cinematic, futuristic AI marketing interface, professional lighting, 8k resolution, smooth motion.';\nconst hook = f.Hook || '';\nconst mainContent = f.Main_Content || '';\nconst cta = f['CTA '] || f.CTA || '';\n\nconst fullScript = [hook, mainContent, cta].filter(Boolean).join('\\n\\n');\n\nif (!fullScript) {\n  throw new Error(\"Stage 3 Failure: Script content (Hook/Main/CTA) is missing from the Airtable records provided to this stage.\");\n}\n\nreturn [{\n  json: {\n    ...$json,\n    full_script: fullScript,\n    visual_prompt: visualCues,\n    estimated_duration: parseInt(f.Estimated_Duration) || 30,\n    record_id: $json.id || f.Source_Content_ID,\n    Platform: f['Target_Platforms '] || f.Target_Platforms || 'TikTok'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -16208,
+        15104
+      ],
+      "id": "prepare-full-script-id",
+      "name": "Prepare Full Script"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.elevenlabs.io/v1/text-to-speech/{{ $env.ELEVENLABS_VOICE_ID }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "={{ $env.ELEVENLABS_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"text\": $node[\"Prepare Full Script\"].json.full_script,\n  \"model_id\": \"eleven_multilingual_v2\",\n  \"voice_settings\": {\n    \"stability\": 0.5,\n    \"similarity_boost\": 0.75\n  }\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -15984,
+        15104
+      ],
+      "id": "9be7ee71-7d6e-42b3-8f45-c47889fd4a19",
+      "name": "Generate Voice (ElevenLabs)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://upload.heygen.com/v1/asset",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $env.HEYGEN_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "audio/mpeg"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -15760,
+        15104
+      ],
+      "id": "upload-audio-heygen-id",
+      "name": "Upload Audio to HeyGen"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.heygen.com/v2/video/generate",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $env.HEYGEN_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"test\": false,\n  \"video_inputs\": [\n    {\n      \"character\": {\n        \"type\": \"avatar\",\n        \"avatar_id\": $env.HEYGEN_AVATAR_ID,\n        \"avatar_style\": \"normal\",\n        \"scale\": 1.2\n      },\n      \"voice\": {\n        \"type\": \"audio\",\n        \"audio_asset_id\": $json.data.id\n      },\n      \"background\": {\n        \"type\": \"color\",\n        \"value\": \"#00FF00\"\n      }\n    }\n  ],\n  \"dimension\": {\n    \"width\": 1080,\n    \"height\": 1920\n  },\n  \"caption\": false,\n  \"caption_style\": {\n    \"style\": \"karaoke\",\n    \"font\": \"Arial Bold\",\n    \"font_size\": 60,\n    \"color\": \"#FFFFFF\",\n    \"highlight_color\": \"#00FF00\",\n    \"background_color\": \"rgba(0,0,0,0.5)\",\n    \"position\": \"bottom_center\"\n  }\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -15984,
+        15312
+      ],
+      "id": "heygen-avatar-id",
+      "name": "Generate HeyGen Avatar"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Video RENDERS",
+          "mode": "name"
+        },
+        "recordId": "={{ $('Get Ready to Publish').first().id || $node['Prepare Full Script'].json.record_id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Render_Status": "Ready to Publish",
+            "Final_Video_URL": "={{ $node[\"Get Project Status\"].json.video_url }}",
+            "Render_ID": "={{ $node[\"Submagic Video Generation\"].json.id }}"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -15312,
+        15104
+      ],
+      "id": "update-renders-success-id",
+      "name": "Update Video RENDERS Success"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-publish",
+              "leftValue": "={{ $json.fields.Status }}",
+              "rightValue": "Publish",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -16400,
+        15568
+      ],
+      "id": "e4ae9476-ffea-4aec-a9d6-15ffdb6a41bc",
+      "name": "Filter: Status = Publish"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_PUBLISHED }}",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ 'Post - ' + $json.id }}",
+            "Video_ID": "={{ $json.id }}",
+            "Platform": "={{ $json.fields.Platform }}",
+            "Published_Date": "={{ $now.format('yyyy-MM-dd') }}",
+            "Status": "Published"
+          }
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "store-published-id",
+      "name": "Store in Published Content",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -16100,
+        15568
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_VIRAL_DB }}",
+          "mode": "id"
+        },
+        "filterByFormula": "{Status} = 'Generate Script'",
+        "options": {}
+      },
+      "id": "get-analyzed-content-id",
+      "name": "Get Analyzed Content",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -16200,
+        14656
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}",
+          "mode": "id"
+        },
+        "filterByFormula": "{Status} = 'Approved'",
+        "options": {}
+      },
+      "id": "get-approved-scripts-id",
+      "name": "Get Approved Scripts",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -16550,
+        15104
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_PROD_QUEUE }}",
+          "mode": "id"
+        },
+        "filterByFormula": "{Select} = 1",
+        "options": {}
+      },
+      "id": "get-ready-to-publish-id",
+      "name": "Get Ready to Publish",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -16550,
+        15568
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/apify~instagram-hashtag-scraper/run-sync-get-dataset-items",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.APIFY_API_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => {\n  try {\n    const k = $json[\"Keyword_or_User\"] || $json[\"Keyword_or_User(text)\"] || \"AI\";\n    const parts = k.toString().split('/').filter(p => p.length > 0);\n    const tag = parts.pop().replace(/[^a-zA-Z0-9_]/g, \"\");\n    return {\n      hashtags: [tag.length > 0 ? tag : \"AI\"],\n      resultsLimit: 30,\n      resultsType: \"reels\"\n    };\n  } catch(e) {\n    return { hashtags: [\"AI\"], resultsLimit: 30, resultsType: \"reels\" };\n  }\n})() }}",
+        "options": {
+          "timeout": 360000
+        }
+      },
+      "id": "496e3496-fed7-4112-9902-13844360e0e5",
+      "name": "Scrape Instagram Posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -16064,
+        13808
+      ],
+      "notes": "Uses Apify Instagram Scraper to get trending posts"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/hey_milad~linkedin-post-scraper/run-sync-get-dataset-items",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.APIFY_API_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"urls\": [$json.Keyword_or_User],\n  \"deepScrape\": true,\n  \"minLikes\": Number($json.Minimum_Engagement_Threshold) || 20\n} }}",
+        "options": {
+          "timeout": 360000
+        }
+      },
+      "id": "47450d5b-eaa7-4b26-9b21-b717288065ca",
+      "name": "Scrape LinkedIn Posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -16064,
+        14000
+      ],
+      "notes": "Uses Apify LinkedIn Post Scraper"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/trudax~reddit-scraper-lite/run-sync-get-dataset-items",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.APIFY_API_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"startUrls\": [{ \"url\": $json.Source_URL || $json.Keyword_or_User }],\n  \"maxItems\": 60,\n  \"minScore\": Number($json.Minimum_Engagement_Threshold) || 50\n} }}",
+        "options": {
+          "timeout": 360000
+        }
+      },
+      "id": "78864f9f-7bdb-48a0-a212-1ebb33713a01",
+      "name": "Scrape Reddit Posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -16064,
+        14192
+      ],
+      "notes": "Uses Apify Reddit Scraper Lite"
+    },
+    {
+      "parameters": {
+        "content": "## \ud83c\udfac STAGE 2: SCRIPT GENERATION\n\n",
+        "height": 416,
+        "width": 1864,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -16736,
+        14496
+      ],
+      "typeVersion": 1,
+      "id": "a72a2661-8a64-408e-a6ee-d20191f40ad4",
+      "name": "STAGE 2 - Script Generation"
+    },
+    {
+      "parameters": {},
+      "id": "5768a8b4-ff6b-4e3a-b0be-1b2c5c6b99fb",
+      "name": "Trigger Generate Script",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -16320,
+        14656
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## \ud83c\udfa5 STAGE 3: ASSET GENERATION\n\n**Goal**: Generate raw AI Avatar and Background Assets",
+        "height": 450,
+        "width": 2300,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -16736,
+        14800
+      ],
+      "typeVersion": 1,
+      "id": "ec0c98ef-1797-4316-8d48-4c160d04425d",
+      "name": "STAGE 3 - Video Production"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "a7e44573-7215-40fc-891f-61ff6f4f08fb",
+      "name": "Trigger Approved Script",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -16656,
+        15104
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## \ud83d\ude80 STAGE 5: PUBLISHING\n\n**Goal**: Distribute rendered video to social platforms",
+        "height": 400,
+        "width": 800,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -16736,
+        15600
+      ],
+      "typeVersion": 1,
+      "id": "36dc81e7-43e4-4d1a-86ac-ca4df21d4309",
+      "name": "STAGE 5 - Publishing"
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "operation": "watch",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Video RENDERS",
+          "mode": "name"
+        },
+        "triggerField": "Last Modified",
+        "filterByFormula": "{Render_Status} = 'Ready to Publish'",
+        "options": {}
+      },
+      "id": "trigger-publish-id",
+      "name": "Trigger: Ready to Publish",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -16624,
+        15700
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## \ud83c\udfac STAGE 4: VIDEO EDITING (SHOTSTACK)\n\n**Goal**: Assemble assets into a final video",
+        "height": 300,
+        "width": 2300,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -16736,
+        15280
+      ],
+      "typeVersion": 1,
+      "id": "stage-4-editing-sticky-id",
+      "name": "STAGE 4 - Video Editing"
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "b51e313f-d9b4-4331-8f24-19a93039b9a5",
+      "name": "Merge Insta and LinkedIn",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [
+        -15360,
+        13872
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "fb6f0927-2c9d-435b-8041-e94f005b871c",
+      "name": "Merge Final",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [
+        -15200,
+        13872
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Robust AI Output Parser - Processes ALL items and carries forward original post data\nconst allInputItems = $input.all();\nconst output = [];\n\nfor (let i = 0; i < allInputItems.length; i++) {\n  const item = allInputItems[i];\n  const rawText = item.json.text || '';\n  let parsedAI = {};\n\n  try {\n    // 1. Try direct JSON parse\n    parsedAI = JSON.parse(rawText);\n  } catch (e) {\n    try {\n      // 2. Try extracting JSON from markdown\n      const jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\n      if (jsonMatch) {\n        parsedAI = JSON.parse(jsonMatch[0]);\n      } else {\n        throw new Error('No JSON found');\n      }\n    } catch (e2) {\n      // 3. Fallback structure\n      parsedAI = {\n        viral_score: 50,\n        hook_pattern: 'Parsing Error',\n        content_structure: 'Parsing Error',\n        emotional_triggers: 'Parsing Error',\n        viral_elements: 'Parsing Error',\n        script_framework: 'Parsing Error',\n        raw_fallback: rawText\n      };\n    }\n  }\n\n  // Carry forward ALL original fields from input (the AI chain passes them through)\n  const originalData = { ...item.json };\n  delete originalData.text; // Remove the raw AI text\n\n  output.push({\n    json: {\n      ...originalData,\n      ...parsedAI\n    }\n  });\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -14816,
+        14016
+      ],
+      "id": "parse-ai-analysis-id",
+      "name": "Parse AI Analysis"
+    },
+    {
+      "parameters": {
+        "amount": 8,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        -15760,
+        15500
+      ],
+      "id": "wait-for-heygen",
+      "name": "Wait (HeyGen)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-completed",
+              "leftValue": "={{ $json.data.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -15440,
+        15500
+      ],
+      "id": "is-heygen-ready-id",
+      "name": "Is HeyGen Ready?"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ \"https://api.heygen.com/v1/video_status.get?video_id=\" + $node[\"Generate HeyGen Avatar\"].json.data.video_id }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $env.HEYGEN_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -15540,
+        15500
+      ],
+      "id": "check-heygen-status",
+      "name": "Check HeyGen Status"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Construct a direct playable URL for the HeyGen avatar video\nconst heygenNode = $('Check HeyGen Status').first().json;\n\n// Handle both null and [null] cases\nlet avatarUrl = heygenNode.data?.video_url;\nif (Array.isArray(avatarUrl)) {\n  avatarUrl = avatarUrl[0];\n}\n\n// Fallback chain\navatarUrl = avatarUrl || heygenNode.video_url || heygenNode.url || '';\n\nif (avatarUrl && avatarUrl !== 'null') {\n  console.log('--- HEYGEN PLAYABLE URL ---');\n  console.log(avatarUrl);\n  return [{ json: { heygen_playable_url: avatarUrl, ...heygenNode } }];\n}\nreturn [{ json: { error: \"HeyGen Avatar URL not found\", ...heygenNode } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -15340,
+        15500
+      ],
+      "id": "construct-heygen-playable-url",
+      "name": "Construct HeyGen Playable URL"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.submagic.co/v1/projects",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.SUBMAGIC_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"title\": $node[\"Prepare Full Script\"].json.fields.Hook || \"AI Video\",\n  \"language\": \"en\",\n  \"videoUrl\": $json.heygen_playable_url,\n  \"templateName\": \"Hormozi 2\",\n  \"magicBrolls\": true,\n  \"magicBrollsPercentage\": 50,\n  \"magicZooms\": true\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -15100,
+        15500
+      ],
+      "id": "submagic-video-generation",
+      "name": "Submagic Video Generation"
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        -14900,
+        15500
+      ],
+      "id": "wait-submagic",
+      "name": "Wait (Submagic)"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ \"https://api.submagic.co/v1/projects/\" + $node[\"Submagic Video Generation\"].json.id }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.SUBMAGIC_API_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -14700,
+        15500
+      ],
+      "id": "get-submagic-status",
+      "name": "Get Project Status"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-submagic-completed",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -14500,
+        15500
+      ],
+      "id": "check-submagic-processing",
+      "name": "Is Processing Complete?"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Video RENDERS",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Ready to Render",
+            "HeyGen_URL": "={{ $node['Construct HeyGen Playable URL'].json.heygen_playable_url }}",
+            "Visual_Prompt": "={{ $node['Prepare Full Script'].json.visual_prompt }}",
+            "Script_Link": "={{ $node['Prepare Full Script'].json.record_id }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-to-renders-id",
+      "name": "Log to Video RENDERS",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -14560,
+        14900
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Process Instagram Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Insta and LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process LinkedIn Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Insta and LinkedIn",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Process Reddit Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Final",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Select Top 5 Viral Posts": {
+      "main": [
+        [
+          {
+            "node": "Analyze Viral Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Viral Content": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Merge AI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge AI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Store in Viral Content DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter: Status = Generate Script": {
+      "main": [
+        [
+          {
+            "node": "Generate Video Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Video Script": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Script": {
+      "main": [
+        [
+          {
+            "node": "Store Script in Library",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter: Status = Approved": {
+      "main": [
+        [
+          {
+            "node": "Prepare Full Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Full Script": {
+      "main": [
+        [
+          {
+            "node": "Generate Voice (ElevenLabs)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Voice (ElevenLabs)": {
+      "main": [
+        [
+          {
+            "node": "Upload Audio to HeyGen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Audio to HeyGen": {
+      "main": [
+        [
+          {
+            "node": "Generate HeyGen Avatar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate HeyGen Avatar": {
+      "main": [
+        [
+          {
+            "node": "Wait (HeyGen)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait (HeyGen)": {
+      "main": [
+        [
+          {
+            "node": "Check HeyGen Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check HeyGen Status": {
+      "main": [
+        [
+          {
+            "node": "Is HeyGen Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is HeyGen Ready?": {
+      "main": [
+        [
+          {
+            "node": "Construct HeyGen Playable URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait (HeyGen)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construct HeyGen Playable URL": {
+      "main": [
+        [
+          {
+            "node": "Submagic Video Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submagic Video Generation": {
+      "main": [
+        [
+          {
+            "node": "Wait (Submagic)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait (Submagic)": {
+      "main": [
+        [
+          {
+            "node": "Get Project Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Project Status": {
+      "main": [
+        [
+          {
+            "node": "Is Processing Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Processing Complete?": {
+      "main": [
+        [
+          {
+            "node": "Update Video RENDERS Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait (Submagic)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Video RENDERS": {
+      "main": [
+        []
+      ]
+    },
+    "Scrape Instagram Posts": {
+      "main": [
+        [
+          {
+            "node": "Process Instagram Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape LinkedIn Posts": {
+      "main": [
+        [
+          {
+            "node": "Process LinkedIn Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Reddit Posts": {
+      "main": [
+        [
+          {
+            "node": "Process Reddit Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.0": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyze Viral Content",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.0 Script": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate Video Script",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Instagram Sources": {
+      "main": [
+        [
+          {
+            "node": "Scrape Instagram Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Instagram Sources",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Reddit Sources",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get LinkedIn Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Instagram Sources",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Reddit Sources",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get LinkedIn Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get LinkedIn Sources": {
+      "main": [
+        [
+          {
+            "node": "Scrape LinkedIn Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Reddit Sources": {
+      "main": [
+        [
+          {
+            "node": "Scrape Reddit Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Insta and LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Merge Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Final": {
+      "main": [
+        [
+          {
+            "node": "Select Top 5 Viral Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Generate Script": {
+      "main": [
+        [
+          {
+            "node": "Get Analyzed Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Analyzed Content": {
+      "main": [
+        [
+          {
+            "node": "Filter: Status = Generate Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Approved Script": {
+      "main": [
+        [
+          {
+            "node": "Get Approved Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Approved Scripts": {
+      "main": [
+        [
+          {
+            "node": "Filter: Status = Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger: Ready to Publish": {
+      "main": [
+        [
+          {
+            "node": "Get Ready to Publish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Ready to Publish": {
+      "main": [
+        [
+          {
+            "node": "Filter: Status = Publish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter: Status = Publish": {
+      "main": [
+        [
+          {
+            "node": "Store in Published Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "37409bb0-48b2-4e2f-afcb-796a13af1d8b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "28ad2dc750d2684174302e5e2534dd92bd06b7ae95497965de0bc42d3de19389"
+  },
+  "id": "HaalsrVvY59PR0LZSeWfP",
+  "tags": []
+}
