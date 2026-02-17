@@ -1,5 +1,5 @@
 {
-  "name": "Viral Content Factory - Production Level",
+  "name": "Viral Content Factory - V2.1 (Insta Fix)",
   "nodes": [
     {
       "parameters": {
@@ -14,7 +14,7 @@
         13584
       ],
       "typeVersion": 1,
-      "id": "32fab7c2-b702-4c34-82ab-02c2e4443e9a",
+      "id": "133e528f-3b51-4c6c-baaf-3977ee5c0863",
       "name": "STAGE 1 - Content Discovery"
     },
     {
@@ -132,7 +132,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Process Instagram Data - Strict Viral Hunt\nconsole.log(\"[DEBUG] Node Started: Process Instagram Data\");\n\nconst output = [];\nconst seenIds = new Set(); // Track unique post IDs\n\nconst fifteenDaysAgo = new Date();\nfifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);\n\nfor (const item of $input.all()) {\n  const postId = item.json.id || item.json.shortCode;\n  \n  // DEDUPLICATION: Skip if we've already seen this post\n  if (seenIds.has(postId)) {\n    continue;\n  }\n\n  // 1. Get Threshold SPECIFIC to this item's source\n  // In n8n, $node[\"Node Name\"].json refers to the input item that triggered this specific execution\n  const source = $node[\"Get Instagram Sources\"].json;\n  const rawThreshold = source[\"Minimum Engagement Threshold\"] || source.Minimum_Engagement_Threshold || source.threshold;\n  let threshold = Number(rawThreshold) || 500;\n  \n  const likes = Number(item.json.likesCount) || 0;\n  const comments = Number(item.json.commentsCount) || 0;\n  const views = Number(item.json.videoPlayCount) || Number(item.json.videoViewCount) || 0;\n  const isReel = item.json.productType === 'clips';\n  const postDate = new Date(item.json.timestamp);\n  const shortCode = item.json.shortCode;\n  \n  // VIRAL FORMULA: Views are weighted 5%, Comments 300%, Likes 100%\n  const engagementScore = (likes * 1) + (comments * 3) + (views * 0.05);\n  \n  const dateValid = postDate >= fifteenDaysAgo;\n  const scoreValid = engagementScore >= threshold;\n  \n  if (!scoreValid || !dateValid) {\n    continue;\n  }\n\n  seenIds.add(postId);\n\n  let postUrl = item.json.url;\n  if (shortCode) {\n    postUrl = isReel ? `https://www.instagram.com/reels/${shortCode}/` : `https://www.instagram.com/p/${shortCode}/`;\n  }\n\n  output.push({\n    json: {\n      platform: 'Instagram',\n      post_id: postId,\n      post_url: postUrl,\n      content: item.json.caption || '',\n      engagement_score: Math.round(engagementScore),\n      likes: likes,\n      comments: comments,\n      views: views,\n      created_at: item.json.timestamp,\n      post_type: isReel ? 'Reel' : item.json.type,\n      is_reel: isReel,\n      raw_data: item.json,\n      threshold_applied: threshold,\n      source_name: source.Name\n    }\n  });\n}\n\nconsole.log(`[DEBUG] Node Finished. High-Quality Count: ${output.length}`);\nreturn output.sort((a, b) => b.json.engagement_score - a.json.engagement_score);"
+        "jsCode": "// Process Instagram Data - Public Metrics Only\nconst output = [];\nconst seenIds = new Set();\n\nconst existingIds = new Set();\ntry {\n  const existingPosts = $node[\"Get Existing Post IDs\"].all();\n  for (const p of existingPosts) {\n    const id = p.json.fields?.Post_ID || p.json.Post_ID || p.json.post_id;\n    if (id) existingIds.add(id.toString().trim());\n  }\n} catch (e) {}\n\nconst source = $node[\"Get Instagram Sources\"].json;\nconst minTarget = Number(source[\"Minimum Engagement Threshold\"]) || 0;\nconst ninetyDaysAgo = new Date();\nninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);\n\nfor (const item of $input.all()) {\n  const d = item.json;\n  const postId = d.id || d.shortCode;\n  if (!postId) continue;\n  if (existingIds.has(postId.toString().trim()) || seenIds.has(postId)) continue;\n\n  const postDate = new Date(d.timestamp);\n  if (postDate < ninetyDaysAgo) continue;\n\n  // === PUBLIC METRICS ONLY ===\n  const likes = Math.max(0, Number(d.likesCount || d.likeCount || d.fbLikeCount) || 0);\n  const comments = Number(d.commentsCount || d.commentCount) || 0;\n  const views = Number(d.fbPlayCount || d.videoPlayCount || d.videoViewCount || d.playCount || d.viewCount) || 0;\n\n  // FILTER: minimum views (or likes if no views)\n  const currentTarget = views || likes;\n  if (currentTarget < minTarget) continue;\n\n  // ENGAGEMENT = (likes + comments) / views * 10000\n  // If no views, use likes as base\n  const denominator = views || (likes * 10) || 1;\n  const engagementRate = Math.round(((likes + comments) / denominator) * 10000);\n\n  seenIds.add(postId);\n  const shortCode = d.shortCode;\n\n  output.push({\n    json: {\n      platform: 'Instagram',\n      post_id: postId,\n      post_url: d.url || `https://www.instagram.com/p/${shortCode}/`,\n      content: d.caption || '',\n      engagement_rate: engagementRate,\n      engagement_score: engagementRate,\n      likes: likes,\n      comments: comments,\n      saves: 0,\n      shares: 0,\n      views: views,\n      followers: 0,\n      created_at: d.timestamp\n    }\n  });\n}\nreturn output.sort((a, b) => b.json.engagement_score - a.json.engagement_score);"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -145,7 +145,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Process LinkedIn Data - Viral Filtering\nconsole.log(\"[DEBUG] Node Started: Process LinkedIn Data\");\n\nconst output = [];\n\nfor (const item of $input.all()) {\n  // 1. Get Threshold from the specific source\n  const source = $node[\"Get LinkedIn Sources\"].json;\n  const rawThreshold = source[\"Minimum Engagement Threshold\"] || source.Minimum_Engagement_Threshold || source.threshold;\n  let threshold = Number(rawThreshold) || 100;\n\n  const reactions = Number(item.json.numReactions) || 0;\n  const comments = Number(item.json.numComments) || 0;\n  const shares = Number(item.json.numShares) || 0;\n  \n  // Engagement score formula\n  const engagementScore = (reactions * 1) + (comments * 5) + (shares * 10);\n  \n  if (engagementScore < threshold || (reactions < 5 && comments < 2)) {\n    continue;\n  }\n\n  output.push({\n    json: {\n      platform: 'LinkedIn',\n      post_id: item.json.id,\n      post_url: item.json.postUrl,\n      content: item.json.text || '',\n      engagement_score: Math.round(engagementScore),\n      reactions: reactions,\n      comments: comments,\n      shares: shares,\n      author: item.json.authorName || '',\n      raw_data: item.json,\n      source_name: source.Name\n    }\n  });\n}\n\nconsole.log(`[DEBUG] LinkedIn Finished. Viral Count: ${output.length}`);\nreturn output;"
+        "jsCode": "// Process LinkedIn Data - Public Metrics Only\nconst output = [];\nconst ninetyDaysAgo = new Date();\nninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);\n\nconst existingIds = new Set();\ntry {\n  const existingPosts = $node[\"Get Existing Post IDs\"].all();\n  for (const p of existingPosts) {\n    const id = p.json.fields?.Post_ID || p.json.Post_ID || p.json.post_id;\n    if (id) existingIds.add(id.toString().trim());\n  }\n} catch (e) {}\n\nconst source = $node[\"Get LinkedIn Sources\"].json;\nconst minTarget = Number(source[\"Minimum Engagement Threshold\"]) || 0;\n\nfor (const item of $input.all()) {\n  const d = item.json;\n  const postId = d.id;\n  if (postId && existingIds.has(postId.toString().trim())) continue;\n\n  const postDate = new Date(d.timestamp || d.postedAt);\n  if (postDate < ninetyDaysAgo) continue;\n\n  // === PUBLIC METRICS ===\n  const reactions = Number(d.numReactions || d.totalReactions) || 0;\n  const comments = Number(d.numComments || d.commentsCount) || 0;\n  const shares = Number(d.numShares || d.sharesCount) || 0;\n  const impressions = Number(d.numImpressions || d.viewsCount) || 0;\n\n  // FILTER\n  const currentTarget = impressions || reactions;\n  if (currentTarget < minTarget) continue;\n\n  // ENGAGEMENT = (reactions + comments) / impressions * 10000\n  const denominator = impressions || (reactions * 10) || 1;\n  const engagementRate = Math.round(((reactions + comments) / denominator) * 10000);\n\n  output.push({\n    json: {\n      platform: 'LinkedIn',\n      post_id: d.id,\n      post_url: d.postUrl,\n      content: d.text || '',\n      engagement_rate: engagementRate,\n      engagement_score: engagementRate,\n      likes: reactions,\n      comments: comments,\n      shares: shares,\n      views: impressions,\n      followers: 0,\n      saves: 0,\n      impressions: impressions,\n      author: d.authorName || ''\n    }\n  });\n}\nreturn output;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -158,7 +158,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Process Reddit Data - Viral Filtering\nconsole.log(\"[DEBUG] Node Started: Process Reddit Data\");\n\nconst output = [];\n\nfor (const item of $input.all()) {\n  // 1. Get Threshold from the specific source\n  const source = $node[\"Get Reddit Sources\"].json;\n  const rawThreshold = source[\"Minimum Engagement Threshold\"] || source.Minimum_Engagement_Threshold || source.threshold;\n  let threshold = Number(rawThreshold) || 150;\n\n  const upvotes = Number(item.json.score) || 0;\n  const comments = Number(item.json.numComments) || 0;\n  \n  // Engagement score formula\n  const engagementScore = (upvotes * 1) + (comments * 2);\n  \n  if (engagementScore < threshold || upvotes < 50) {\n    continue;\n  }\n\n  output.push({\n    json: {\n      platform: 'Reddit',\n      post_id: item.json.id,\n      post_url: item.json.url,\n      content: `${item.json.title || ''}\\n\\n${item.json.selfText || ''}`,\n      engagement_score: Math.round(engagementScore),\n      upvotes: upvotes,\n      comments: comments,\n      subreddit: item.json.subredditName,\n      author: item.json.author,\n      raw_data: item.json,\n      source_name: source.Name\n    }\n  });\n}\n\nconsole.log(`[DEBUG] Reddit Finished. Viral Count: ${output.length}`);\nreturn output;"
+        "jsCode": "// Process Reddit Data - Public Metrics Only\nconst output = [];\nconst ninetyDaysAgo = new Date();\nninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);\n\nconst existingIds = new Set();\ntry {\n  const existingPosts = $node[\"Get Existing Post IDs\"].all();\n  for (const p of existingPosts) {\n    const id = p.json.fields?.Post_ID || p.json.Post_ID || p.json.post_id;\n    if (id) existingIds.add(id.toString().trim());\n  }\n} catch (e) {}\n\nconst source = $node[\"Get Reddit Sources\"].json;\nconst minTarget = Number(source[\"Minimum Engagement Threshold\"]) || 0;\n\nfor (const item of $input.all()) {\n  const d = item.json;\n  const postId = d.id;\n  if (postId && existingIds.has(postId.toString().trim())) continue;\n\n  const postDate = new Date(d.createdAt || d.timestamp);\n  if (postDate < ninetyDaysAgo) continue;\n\n  // === PUBLIC METRICS ===\n  const upvotes = Number(d.score || d.upvotes) || 0;\n  const comments = Number(d.numComments || d.commentsCount) || 0;\n  const views = Number(d.viewCount || d.views) || 0;\n\n  // FILTER\n  const currentTarget = views || upvotes;\n  if (currentTarget < minTarget) continue;\n\n  // ENGAGEMENT = (upvotes + comments) / views * 10000\n  const denominator = views || (upvotes * 10) || 1;\n  const engagementRate = Math.round(((upvotes + comments) / denominator) * 10000);\n\n  output.push({\n    json: {\n      platform: 'Reddit',\n      post_id: d.id,\n      post_url: d.url,\n      content: `${d.title || ''}\\n\\n${d.selfText || ''}`,\n      engagement_rate: engagementRate,\n      engagement_score: engagementRate,\n      likes: upvotes,\n      comments: comments,\n      views: views,\n      saves: 0,\n      shares: 0,\n      followers: 0,\n      subreddit: d.subredditName,\n      author: d.author\n    }\n  });\n}\nreturn output;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -171,7 +171,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Select top 5 posts across all platforms\n\n\n// Ensure we only have $input.all() with engagement\nconst validItems = $input.all().filter(item => (item.json.engagement_score || 0) > 0);\n\n// Sort by engagement score descending\nconst sorted = validItems.sort((a, b) => {\n  return (b.json.engagement_score || 0) - (a.json.engagement_score || 0);\n});\n\n// Get top 5\nreturn sorted.slice(0, 5);"
+        "jsCode": "// Select top 20 posts across all platforms\nconst validItems = $input.all().filter(item => (item.json.engagement_score || 0) > 0);\nconst sorted = validItems.sort((a, b) => (b.json.engagement_score || 0) - (a.json.engagement_score || 0));\nreturn sorted.slice(0, 20);"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -180,14 +180,16 @@
         13904
       ],
       "id": "d3c7b359-84b6-4ed5-9438-5091f2980c4c",
-      "name": "Select Top 5 Viral Posts"
+      "name": "Select Top 20 Viral Posts"
     },
     {
       "parameters": {
         "promptType": "define",
-        "text": "=# ScaleBuild AI - Viral Content Analyst\n\n## Viral DNA\n- **Platform**: {{ $json.platform }}\n- **Post ID**: {{ $json.post_id }}\n- **Content**: {{ $json.content }}\n- **Views**: {{ $json.views }}\n- **Likes**: {{ $json.likes }}\n- **Comments**: {{ $json.comments }}\n- **Engagement Score**: {{ $json.engagement_score }}\n\n## Task\nAnalyze this post and reverse-engineer its viral chemistry. Output your analysis as a PURE JSON object.\n\n## Output Format\nReturn ONLY a valid JSON object. Do NOT include markdown code blocks or any text before/after the JSON.\n\n{\n  \"viral_score\": [0-100],\n  \"hook_pattern\": \"Short description of the opening trigger\",\n  \"content_structure\": \"Overall narrative flow\",\n  \"emotional_triggers\": \"Top 3 emotions triggered\",\n  \"viral_elements\": \"Core psychological triggers\",\n  \"script_framework\": \"The logical logic used\"\n}",
+        "text": "=# ScaleBuild AI - Viral Content Analyst\n\n## Viral DNA\n- **Platform**: {{ $json.platform }}\n- **Post ID**: {{ $json.post_id }}\n- **Content**: {{ $json.content }}\n- **Engagement Rate**: {{ $json.engagement_rate }}%\n- **Likes**: {{ $json.likes || $json.reactions || $json.upvotes }}\n- **Comments**: {{ $json.comments }}\n- **Saves/Shares/Views**: {{ ($json.saves || 0) + ($json.shares || 0) + ($json.views || 0) }}\n\n## Task\nAnalyze this post and reverse-engineer its viral chemistry. Focus on the STORY and the NARRATIVE HOOK that made it viral. \n\nExample: If it's a penguin in the Himalayas, the hook is 'A penguin lost in the mountains.'\n\nOutput your analysis as a PURE JSON object.\n\n## Output Format\nReturn ONLY a valid JSON object. Do NOT include markdown code blocks or any text before/after the JSON.\n\n{\n  \"viral_score\": [0-100],\n  \"narrative_hook\": \"The specific story-driven hook or weird situation that captures attention\",\n  \"visual_theme\": \"The primary visual concept (e.g., Panda in a spacestation, Robot on a farm)\",\n  \"core_story\": \"A 1-sentence summary of the viral narrative\",\n  \"emotional_triggers\": \"Top 3 emotions triggered\",\n  \"viral_elements\": \"Core psychological triggers\",\n  \"script_framework\": \"The logical structure used\"\n}",
         "hasOutputParser": false,
-        "batching": {}
+        "batching": {
+          "batchSize": 20
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.7,
@@ -218,7 +220,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Merge AI Analysis with Original Post Data\n// This node receives parsed AI data and merges it with original post data from Select Top 5\nconst parsedItems = $input.all();\nconst output = [];\n\nfor (let i = 0; i < parsedItems.length; i++) {\n  const parsedData = parsedItems[i].json;\n  \n  // Get original post data from the Select Top 5 Viral Posts node\n  let originalPost = {};\n  try {\n    const allPosts = $(\"Select Top 5 Viral Posts\").all();\n    originalPost = allPosts[i]?.json || {};\n  } catch (e) {\n    try {\n      originalPost = $items(\"Select Top 5 Viral Posts\")[i]?.json || {};\n    } catch (e2) {\n      // Last resort: use data from the parsed item itself (it may have been carried forward)\n      originalPost = {};\n    }\n  }\n  \n  // Merge: Original post data FIRST, then AI analysis on top\n  output.push({\n    json: {\n      // Original post fields\n      platform: originalPost.platform || parsedData.platform || '',\n      post_id: originalPost.post_id || parsedData.post_id || '',\n      post_url: originalPost.post_url || parsedData.post_url || '',\n      content: originalPost.content || parsedData.content || '',\n      engagement_score: originalPost.engagement_score || parsedData.engagement_score || 0,\n      likes: originalPost.likes || parsedData.likes || 0,\n      comments: originalPost.comments || parsedData.comments || 0,\n      views: originalPost.views || parsedData.views || 0,\n      created_at: originalPost.created_at || parsedData.created_at || '',\n      post_type: originalPost.post_type || parsedData.post_type || '',\n      // AI Analysis fields\n      viral_score: parsedData.viral_score || 0,\n      hook_pattern: parsedData.hook_pattern || '',\n      content_structure: parsedData.content_structure || '',\n      emotional_triggers: parsedData.emotional_triggers || '',\n      viral_elements: parsedData.viral_elements || '',\n      script_framework: parsedData.script_framework || '',\n      // Handle the specific column trailing space issue\n      Viral_Elements_With_Space: parsedData.viral_elements || ''\n    }\n  });\n}\n\nreturn output;"
+        "jsCode": "// Merge AI Analysis with Original Post Data\nconst parsedItems = $input.all();\nconst output = [];\n\nfor (let i = 0; i < parsedItems.length; i++) {\n  const parsedData = parsedItems[i].json;\n  \n  let originalPost = {};\n  try {\n    const allPosts = $(\"Select Top 20 Viral Posts\").all();\n    originalPost = allPosts[i]?.json || {};\n  } catch (e) {\n    try {\n      originalPost = $items(\"Select Top 20 Viral Posts\")[i]?.json || {};\n    } catch (e2) {\n      originalPost = {};\n    }\n  }\n  \n  output.push({\n    json: {\n      ...originalPost,\n      ...parsedData,\n      // Explicitly carry over metrics for Airtable\n      engagement_rate: originalPost.engagement_rate || 0,\n      followers: originalPost.followers || 0,\n      saves: originalPost.saves || 0,\n      shares: originalPost.shares || 0,\n      impressions: originalPost.impressions || 0,\n      clicks: originalPost.clicks || 0,\n      views: originalPost.views || 0,\n      // Fallback views mapping for Shares_Awards\n      actual_views: originalPost.views || 0,\n      // Support for the old space column\n      viral_elements: parsedData.viral_elements || '',\n      Viral_Elements_With_Space: parsedData.viral_elements || ''\n    }\n  });\n}\n\nreturn output;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -255,13 +257,19 @@
             "Comments": "={{ $json.comments || 0 }}",
             "Shares_Awards": "={{ $json.shares || $json.views || 0 }}",
             "Viral_Score": "={{ $json.viral_score }}",
-            "Hook_Pattern": "={{ $json.hook_pattern }}",
-            "Content_Structure": "={{ $json.content_structure }}",
+            "Hook_Pattern": "={{ $json.hook_pattern || $json.narrative_hook }}",
+            "Content_Structure": "={{ $json.content_structure || $json.core_story }}",
             "Emotional_Triggers": "={{ $json.emotional_triggers }}",
-            "Viral_Elements ": "={{ $json.Viral_Elements_With_Space }}",
-            "Script_Framework": "={{ $json.script_framework }}",
+            "Viral_Elements": "={{ $json.viral_elements }}",
             "Status": "Analyzed",
-            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}"
+            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}",
+            "Engagement_Rate": "={{ $json.engagement_rate }}",
+            "Followers": "={{ $json.followers || 0 }}",
+            "Saves": "={{ $json.saves || 0 }}",
+            "Shares": "={{ $json.shares || 0 }}",
+            "Impressions": "={{ $json.impressions || 0 }}",
+            "Clicks": "={{ $json.clicks || 0 }}",
+            "Views": "={{ $json.views || 0 }}"
           }
         },
         "options": {
@@ -279,7 +287,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Filter Stage 2 - Picks up posts ready for script generation\nconst allItems = $input.all();\nconst filtered = [];\n\nfor (const item of allItems) {\n  const fields = item.json.fields || {};\n  const status = fields.Status || item.json.Status || item.json.status || fields.status || '';\n  \n  if (status.toString().trim() === \"Generate Script\") {\n    filtered.push(item);\n  }\n}\n\nreturn filtered;"
+        "jsCode": "// Filter Stage 2 - Aggregate ALL posts for batch analysis\nconst allItems = $input.all();\nconst viralContent = [];\n\nfor (const item of allItems) {\n  const fields = item.json.fields || {};\n  const status = fields.Status || item.json.Status || item.json.status || fields.status || '';\n  \n  if (status.toString().trim() === \"Generate Script\") {\n    viralContent.push({\n      content: fields.Content || item.json.content || '',\n      narrative_hook: fields.Narrative_Hook || item.json.narrative_hook || '',\n      visual_theme: fields.Visual_Theme || item.json.visual_theme || '',\n      core_story: fields.Core_Story || item.json.core_story || '',\n      engagement: fields.Engagement_Rate || item.json.engagement_rate || 0,\n      platform: fields.Platform || item.json.platform || '',\n      id: item.json.id || item.id\n    });\n  }\n}\n\n// Return a single item containing the entire collection\nreturn [{ json: { all_viral_content: viralContent } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -293,9 +301,11 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=# ScaleBuild AI - Viral Script Architect\n\n## System Instructions\nYou are the Lead Content Strategist for **ScaleBuild AI**. Your goal is to take viral AI trends and remix them into a high-converting 20-second video advertisement for ScaleBuild AI.\n\n## Constraint: EXACT WORD COUNT\n- **Combined Hook + Main Content word count must be between 40 and 50 words.**\n- This is critical to hit the 20-second mark accurately.\n\n## Input - Viral DNA\n- **Original Content**: {{ $json.fields.Content }}\n- **Hook Used**: {{ $json.fields.Hook_Pattern }}\n\n## Task\nCreate a NEW, ORIGINAL script (20s) as a JSON object with a 'scenes' array for professional video editing.\n\n## Output Format\nReturn ONLY a valid JSON object. Do NOT include markdown backticks.\n\n{\n  \"script_title\": \"ScaleBuild AI - [Trend Name]\",\n  \"scenes\": [\n    {\n      \"type\": \"hook\",\n      \"text\": \"EXACT opening trigger (short, punchy)\",\n      \"visual\": \"Highly descriptive prompt for AI video generation\",\n      \"duration\": 3,\n      \"avatar_visible\": true\n    },\n    {\n      \"type\": \"main\",\n      \"text\": \"EXACT main value proposition (problem + solution)\",\n      \"visual\": \"Visual of automation/results\",\n      \"duration\": 15,\n      \"avatar_visible\": false\n    },\n    {\n      \"type\": \"cta\",\n      \"text\": \"EXACT call to action (short)\",\n      \"visual\": \"Clear CTA graphics\",\n      \"duration\": 2,\n      \"avatar_visible\": true\n    }\n  ],\n  \"tone\": \"Authoritative, Disruptive, Fast\",\n  \"target_platforms\": [\"Instagram\", \"TikTok\", \"YouTube Shorts\", \"LinkedIn\"],\n  \"estimated_duration\": 20\n}\n\n## Brand voice\nDirect, sophisticated, and obsessed with speed. Avoid generic filler words. Be disruptive.",
+        "text": "=# ScaleBuild AI - Viral Storyboard Architect\\n\\n## System Instructions\\nYou are the Creative Director for **ScaleBuild AI**. Do NOT act as a marketing analyst.\\nYour goal: Take a collection of 20 viral posts, select the **TOP 5 MOST DISTINCT CONCEPTS**, and turn them into 5 unique 20-second video storyboards.\\n\\n## Input - Viral Collection\\n{{ $json.all_viral_content }}\\n\\n## TASK: The 'Best of the Best' Selection\\n1. **SCAN**: Analyze all 20 inputs.\\n2. **SELECT**: Pick the 5 viral hooks that are the most *unique* and *visually interesting*. Do not pick 5 similar ones.\\n3. **GENERATE**: Write exactly ONE script for each of your top 5 selections.\\n\\n## THE RULE OF \\\"INDIRECT INSPIRATION\\\"\\n1. **NEVER** mention \\\"this video,\\\" \\\"viral trend,\\\" \\\"views,\\\" or \\\"Reddit.\\\"\\n2. **DETECT THE GENRE**:\\n   - **IF Character Viral (e.g., Penguin/Cat)**: Create a SURREAL character drama. (e.g., \\\"Penguin CEO falling behind on orders.\\\")\\n   - **IF Tech/News Viral (e.g., New AI Model)**: Create a HIGH-STAKES CORPORATE THRILLER. (e.g., \\\"Code Red. The competition just released a monster model. We have 24 hours to respond.\\\")\\n3. **BE THE MOVIE**: Write the script AS the character/scene, not AS a narrator describing it.\\n\\n## 3-Step Story Arc\\n1. **THE OBJETS D\\'ART (The Hook)**: Start *in media res* based on the detected genre.\\n   - *Character Example*: \\\"My robot butler just quit because the workload was too high.\\\"\\n   - *Tech Example*: \\\"The new model is faster. Smarter. And it just stole our market share.\\\"\\n2. **THE CHAOS (The Problem)**: Escalate the situation. The manual way is failing.\\n3. **THE ARCHITECT (The Solution)**: ScaleBuild AI enters as the deus ex machina. It builds/scales/fixes instantly.\\n\\n## Output Format\\nReturn ONLY a valid JSON object with a 'scripts' array containing exactly 5 scripts. No markdown.\\n\\n{\\n  \\\"scripts\\\": [\\n    {\\n      \\\"script_title\\\": \\\"ScaleBuild AI - [Concept Name]\\\",\\n      \\\"variation\\\": 1,\\n      \\\"scenes\\\": [\\n        {\\n          \\\"type\\\": \\\"hook\\\",\\n          \\\"text\\\": \\\"[Character V.O.] Stop! The [Viral Object/Threat] is losing control!\\\",\\n          \\\"visual\\\": \\\"A cinematic shot of [detected genre visual] looking overwhelmed/chaos.\\\",\\n          \\\"duration\\\": 5,\\n          \\\"avatar_visible\\\": true\\n        },\\n        {\\n          \\\"type\\\": \\\"main\\\",\\n          \\\"text\\\": \\\"We need to scale faster. Building infrastructure... deploying agents...\\\",\\n          \\\"visual\\\": \\\"Fast-paced montage of ScaleBuild UI constructing the solution around the [Viral Visual].\\\",\\n          \\\"duration\\\": 13,\\n          \\\"avatar_visible\\\": false\\n        },\\n        {\\n          \\\"type\\\": \\\"cta\\\",\\n          \\\"text\\\": \\\"ScaleBuild AI. Your empire, automated.\\\",\\n          \\\"visual\\\": \\\"The [Viral Visual] is now happy/successful/giant. Logo overlay.\\\",\\n          \\\"duration\\\": 2,\\n          \\\"avatar_visible\\\": true\\n        }\\n      ],\\n      \\\"tone\\\": \\\"Cinematic, Surreal, High-Stakes\\\",\\n      \\\"target_platforms\\\": [\\\"Instagram\\\", \\\"TikTok\\\", \\\"YouTube Shorts\\\", \\\"LinkedIn\\\"],\\n      \\\"estimated_duration\\\": 20\\n    }\\n  ]\\n}\\n\\n## Brand voice\\nCinematic, Surreal, Disruptive. Obsessed with building big shit fast.",
         "hasOutputParser": false,
-        "batching": {}
+        "batching": {
+          "batchSize": 20
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.7,
@@ -311,7 +321,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Advanced AI Script Parser - Aggregates scenes for Airtable storage\nconst allInputItems = $input.all();\nconst output = [];\n\nlet sourceItems = [];\ntry {\n  sourceItems = $node[\"Filter: Status = Generate Script\"].all();\n} catch (e) {}\n\nfor (let i = 0; i < allInputItems.length; i++) {\n  const item = allInputItems[i];\n  const rawText = item.json.text || '';\n  let parsedScript = {};\n\n  try {\n    parsedScript = JSON.parse(rawText);\n  } catch (e) {\n    const jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) parsedScript = JSON.parse(jsonMatch[0]);\n  }\n\n  if (parsedScript.scenes) {\n    // Aggregate scene text by type\n    const hook = parsedScript.scenes.filter(s => s.type === 'hook').map(s => s.text).join(' ');\n    const main = parsedScript.scenes.filter(s => s.type === 'main').map(s => s.text).join(' ');\n    const cta = parsedScript.scenes.filter(s => s.type === 'cta').map(s => s.text).join(' ');\n    const visuals = parsedScript.scenes.map(s => s.visual).join(' | ');\n    \n    const totalWords = (hook + ' ' + main).split(/\\s+/).filter(w => w.length > 0).length;\n    console.log(`[DEBUG] Script Parsed. Hook+Main Words: ${totalWords}`);\n\n    parsedScript.hook = hook;\n    parsedScript.main_content = main;\n    parsedScript.cta = cta;\n    parsedScript.visual_cues = visuals;\n  }\n\n  const sourceItem = sourceItems[i] || {};\n  const sourceId = sourceItem.json?.id || sourceItem.id || '';\n\n  output.push({\n    json: {\n      ...parsedScript,\n      source_record_id: sourceId\n    }\n  });\n}\n\nreturn output;"
+        "jsCode": "// Advanced Batch Script Parser - Splits 5 variations into separate Airtable items\nconst input = $input.first();\nconst rawText = input.json.text || '';\nconst output = [];\n\nlet parsed = {};\ntry {\n  parsed = JSON.parse(rawText);\n} catch (e) {\n  const jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);\n}\n\nconst scripts = parsed.scripts || [];\n\nfor (const script of scripts) {\n  if (script.scenes) {\n    const hook = script.scenes.filter(s => s.type === 'hook').map(s => s.text).join(' ');\n    const main = script.scenes.filter(s => s.type === 'main').map(s => s.text).join(' ');\n    const cta = script.scenes.filter(s => s.type === 'cta').map(s => s.text).join(' ');\n    const visuals = script.scenes.map(s => s.visual).join(' | ');\n\n    output.push({\n      json: {\n        script_title: script.script_title || 'New Batch Script',\n        hook: hook,\n        main_content: main,\n        cta: cta,\n        visual_cues: visuals,\n        tone: script.tone || 'Professional',\n        target_platforms: script.target_platforms || ['Instagram'],\n        estimated_duration: script.estimated_duration || 20,\n        hashtags: script.hashtags || [],\n        variation: script.variation || 1\n      }\n    });\n  }\n}\n\nreturn output;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -511,7 +521,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"test\": false,\n  \"video_inputs\": [\n    {\n      \"character\": {\n        \"type\": \"avatar\",\n        \"avatar_id\": $env.HEYGEN_AVATAR_ID,\n        \"avatar_style\": \"normal\",\n        \"scale\": 1.2\n      },\n      \"voice\": {\n        \"type\": \"audio\",\n        \"audio_asset_id\": $json.data.id\n      },\n      \"background\": {\n        \"type\": \"color\",\n        \"value\": \"#00FF00\"\n      }\n    }\n  ],\n  \"dimension\": {\n    \"width\": 1080,\n    \"height\": 1920\n  },\n  \"caption\": false,\n  \"caption_style\": {\n    \"style\": \"karaoke\",\n    \"font\": \"Arial Bold\",\n    \"font_size\": 60,\n    \"color\": \"#FFFFFF\",\n    \"highlight_color\": \"#00FF00\",\n    \"background_color\": \"rgba(0,0,0,0.5)\",\n    \"position\": \"bottom_center\"\n  }\n} }}",
+        "jsonBody": "={{ {\n  \"test\": false,\n  \"video_inputs\": [\n    {\n      \"character\": {\n        \"type\": \"avatar\",\n        \"avatar_id\": $env.HEYGEN_AVATAR_ID,\n        \"avatar_style\": \"normal\",\n        \"scale\": 1.0\n      },\n      \"voice\": {\n        \"type\": \"audio\",\n        \"audio_asset_id\": $json.data.id\n      },\n      \"background\": {\n        \"type\": \"color\",\n        \"value\": \"#00FF00\"\n      }\n    }\n  ],\n  \"dimension\": {\n    \"width\": 1080,\n    \"height\": 1920\n  },\n  \"caption\": false,\n  \"caption_style\": {\n    \"style\": \"karaoke\",\n    \"font\": \"Arial Bold\",\n    \"font_size\": 60,\n    \"color\": \"#FFFFFF\",\n    \"highlight_color\": \"#00FF00\",\n    \"background_color\": \"rgba(0,0,0,0.5)\",\n    \"position\": \"bottom_center\"\n  }\n} }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -720,7 +730,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ (() => {\n  try {\n    const k = $json[\"Keyword_or_User\"] || $json[\"Keyword_or_User(text)\"] || \"AI\";\n    const parts = k.toString().split('/').filter(p => p.length > 0);\n    const tag = parts.pop().replace(/[^a-zA-Z0-9_]/g, \"\");\n    return {\n      hashtags: [tag.length > 0 ? tag : \"AI\"],\n      resultsLimit: 30,\n      resultsType: \"reels\"\n    };\n  } catch(e) {\n    return { hashtags: [\"AI\"], resultsLimit: 30, resultsType: \"reels\" };\n  }\n})() }}",
+        "jsonBody": "={{ (() => {\n  const k = $json[\"Keyword_or_User\"] || $json[\"Keyword_or_User(text)\"] || \"AI\";\n  // Extract simple tag/keyword\n  const parts = k.toString().split('/').filter(p => p.length > 0);\n  const tag = parts.pop().replace(/[^a-zA-Z0-9_]/g, \"\");\n  const limit = Math.max(1, Math.floor(50 / $(\"Get Instagram Sources\").all().length));\n  return {\n    \"hashtags\": [tag || \"AI\"],\n    \"resultsLimit\": limit\n  };\n})() }}",
         "options": {
           "timeout": 360000
         }
@@ -756,7 +766,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"urls\": [$json.Keyword_or_User],\n  \"deepScrape\": true,\n  \"minLikes\": Number($json.Minimum_Engagement_Threshold) || 20\n} }}",
+        "jsonBody": "={{ {\n  \"urls\": [$json.Keyword_or_User],\n  \"deepScrape\": true,\n  \"minLikes\": Number($json.Minimum_Engagement_Threshold) || 20,\n  \"limit\": Math.max(1, Math.floor(150 / $(\"Get LinkedIn Sources\").all().length))\n} }}",
         "options": {
           "timeout": 360000
         }
@@ -792,7 +802,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"startUrls\": [{ \"url\": $json.Source_URL || $json.Keyword_or_User }],\n  \"maxItems\": 60,\n  \"minScore\": Number($json.Minimum_Engagement_Threshold) || 50\n} }}",
+        "jsonBody": "={{ {\n  \"startUrls\": [{ \"url\": (($json.Source_URL || $json.Keyword_or_User).toString().startsWith('http') ? ($json.Source_URL || $json.Keyword_or_User) : 'https://www.reddit.com/' + ($json.Source_URL || $json.Keyword_or_User).toString().replace(/^\\/?/, '')) }],\n  \"maxItems\": Math.max(1, Math.floor(150 / $(\"Get Reddit Sources\").all().length)),\n  \"minScore\": Number($json.Minimum_Engagement_Threshold) || 50\n} }}",
         "options": {
           "timeout": 360000
         }
@@ -1061,6 +1071,53 @@
     },
     {
       "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "heygen_playable_url",
+              "value": "PASTE_YOUR_VIDEO_URL_HERE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "manual-url-input",
+      "name": "Manual URL Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        -15300,
+        15300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const url = $json.heygen_playable_url;\nconst rid = Date.now();\n\nconst input = \"/tmp/input_\" + rid + \".mp4\";\nconst output = \"/tmp/zoomed_\" + rid + \".mp4\";\nconst uploader = \"/tmp/uploader_\" + rid + \".js\";\nconst ffmpeg = \"/home/node/scripts/node_modules/ffmpeg-static/ffmpeg\";\n\nconst nodeScript = `\nconst https = require('https');\nconst fs = require('fs');\nconst path = require('path');\nconst filePath = process.argv[2];\nif (!filePath) { console.error('No file path provided'); process.exit(1); }\nconst filename = path.basename(filePath);\nconst boundary = '----n8nBoundary' + Date.now();\n\nconst options = {\n  method: 'POST',\n  hostname: 'tmpfiles.org',\n  path: '/api/v1/upload',\n  headers: { 'Content-Type': 'multipart/form-data; boundary=' + boundary }\n};\n\nconst req = https.request(options, (res) => {\n  let body = '';\n  res.on('data', d => body += d);\n  res.on('end', () => {\n    try {\n      const json = JSON.parse(body);\n      if (json.status === 'success' && json.data && json.data.url) {\n        // Convert to direct download link: tmpfiles.org/... -> tmpfiles.org/dl/...\n        const directUrl = json.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');\n        process.stdout.write(directUrl);\n        process.exit(0);\n      } else {\n        process.stderr.write('Upload failed: ' + body);\n        process.exit(1);\n      }\n    } catch (e) {\n      process.stderr.write('JSON parse error: ' + body);\n      process.exit(1);\n    }\n  });\n});\n\nreq.on('error', e => { process.stderr.write(e.message); process.exit(1); });\n\nreq.write('--' + boundary + '\\\\r\\\\n');\nreq.write('Content-Disposition: form-data; name=\\\"file\\\"; filename=\\\"' + filename + '\\\"\\\\r\\\\n');\nreq.write('Content-Type: video/mp4\\\\r\\\\n\\\\r\\\\n');\n\nfs.createReadStream(filePath).on('end', () => {\n  req.write('\\\\r\\\\n--' + boundary + '--\\\\r\\\\n');\n  req.end();\n}).pipe(req, { end: false });\n`.trim();\n\nconst base64Script = Buffer.from(nodeScript).toString('base64');\n\nconst setupCmd = \"echo '\" + base64Script + \"' | base64 -d > \\\"\" + uploader + \"\\\"\";\nconst downloadCmd = \"wget -O \\\"\" + input + \"\\\" \\\"\" + url + \"\\\"\";\nconst ffmpegCmd = ffmpeg + \" -i \\\"\" + input + \"\\\" -vf \\\"crop=ih*9/16/1.3:ih/1.3,scale=1080:1920\\\" -c:v libx264 -crf 23 -preset ultrafast -y \\\"\" + output + \"\\\"\";\nconst uploadCmd = \"node \\\"\" + uploader + \"\\\" \\\"\" + output + \"\\\"\";\nconst cleanupCmd = \"rm -f \\\"\" + input + \"\\\" \\\"\" + output + \"\\\" \\\"\" + uploader + \"\\\"\";\n\nconst fullCommand = setupCmd + \" && \" + downloadCmd + \" && \" + ffmpegCmd + \" && \" + uploadCmd + \" ; RET=$? ; \" + cleanupCmd + \" ; exit $RET\";\n\nreturn { json: { command: fullCommand } };"
+      },
+      "id": "prepare-ffmpeg-command",
+      "name": "Prepare FFmpeg Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -15200,
+        15500
+      ]
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.command }}"
+      },
+      "id": "ffmpeg-zoom-upload",
+      "name": "FFmpeg: Zoom & Upload",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -15100,
+        15500
+      ]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://api.submagic.co/v1/projects",
         "authentication": "none",
@@ -1080,14 +1137,14 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"title\": $node[\"Prepare Full Script\"].json.fields.Hook || \"AI Video\",\n  \"language\": \"en\",\n  \"videoUrl\": $json.heygen_playable_url,\n  \"templateName\": \"Hormozi 2\",\n  \"magicBrolls\": true,\n  \"magicBrollsPercentage\": 50,\n  \"magicZooms\": true\n} }}",
+        "jsonBody": "={{ JSON.stringify({\n  \"title\": \"AI Video\",\n  \"language\": \"en\",\n  \"videoUrl\": $json.stdout.trim(),\n  \"templateName\": \"Hormozi 2\",\n  \"magicBrolls\": true,\n  \"magicBrollsPercentage\": 35,\n  \"magicZooms\": false\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
       "position": [
-        -15100,
-        15500
+        -14800,
+        15300
       ],
       "id": "submagic-video-generation",
       "name": "Submagic Video Generation"
@@ -1180,9 +1237,9 @@
           "mappingMode": "defineBelow",
           "value": {
             "Status": "Ready to Render",
-            "HeyGen_URL": "={{ $node['Construct HeyGen Playable URL'].json.heygen_playable_url }}",
-            "Visual_Prompt": "={{ $node['Prepare Full Script'].json.visual_prompt }}",
-            "Script_Link": "={{ $node['Prepare Full Script'].json.record_id }}"
+            "HeyGen_URL": "={{ $node['Construct HeyGen Playable URL']?.isExecuted ? $node['Construct HeyGen Playable URL'].json.heygen_playable_url : '' }}",
+            "Visual_Prompt": "={{ $node['Prepare Full Script']?.isExecuted ? $node['Prepare Full Script'].json.visual_prompt : '' }}",
+            "Script_Link": "={{ $node['Prepare Full Script']?.isExecuted ? $node['Prepare Full Script'].json.record_id : '' }}"
           }
         },
         "options": {}
@@ -1232,7 +1289,7 @@
         ]
       ]
     },
-    "Select Top 5 Viral Posts": {
+    "Select Top 20 Viral Posts": {
       "main": [
         [
           {
@@ -1405,6 +1462,33 @@
       ]
     },
     "Construct HeyGen Playable URL": {
+      "main": [
+        []
+      ]
+    },
+    "Manual URL Input": {
+      "main": [
+        [
+          {
+            "node": "Prepare FFmpeg Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare FFmpeg Command": {
+      "main": [
+        [
+          {
+            "node": "FFmpeg: Zoom & Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FFmpeg: Zoom & Upload": {
       "main": [
         [
           {
@@ -1616,7 +1700,7 @@
       "main": [
         [
           {
-            "node": "Select Top 5 Viral Posts",
+            "node": "Select Top 20 Viral Posts",
             "type": "main",
             "index": 0
           }

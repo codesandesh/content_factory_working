@@ -11,6 +11,10 @@ services:
     env_file:
       - .env
     environment:
+      - N8N_ALLOW_EXECUTE_COMMAND=true
+      - NODES_EXCLUDE=[]
+      - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
+      - N8N_STORAGE_PATH=/home/node/.n8n
       # Core n8n Configuration
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
