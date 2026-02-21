@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "jsCode": "// Filter Stage 2 - Aggregate ALL posts into a single formatted text block\nconst allItems = $input.all();\nconst viralPosts = [];\n\nfor (const item of allItems) {\n  const fields = item.json.fields || {};\n  const status = fields.Status || item.json.Status || item.json.status || fields.status || '';\n  \n  if (status.toString().trim() === \"Generate Script\") {\n    viralPosts.push({\n      Post_ID: item.json.id || fields.Post_ID || item.json.Post_ID || item.id || '',\n      Content: fields.Content || item.json.Content || item.json.content || '',\n      Transcript: fields.Transcript || item.json.Transcript || item.json.transcript || '',\n      Shares_Awards: fields.Shares_Awards || item.json.Shares_Awards || fields.Engagement_Rate || item.json.engagement_rate || 0,\n      Viral_Score: fields.Viral_Score || item.json.Viral_Score || 0,\n      Narrative_Hook: fields.Narrative_Hook || item.json.Narrative_Hook || item.json.narrative_hook || '',\n      Visual_Theme: fields.Visual_Theme || item.json.Visual_Theme || item.json.visual_theme || '',\n      Core_Story: fields.Core_Story || item.json.Core_Story || item.json.core_story || '',\n      Platform: fields.Platform || item.json.Platform || item.json.platform || '',\n      Status: status\n    });\n  }\n}\n\n// Convert array to a single formatted text block (like Make's Text Aggregator)\nconst textBlock = viralPosts.map((post, index) => {\n  return `===\nPOST ${index + 1}:\nPost_ID: ${post.Post_ID}\nContent: ${post.Content}\nTranscript: ${post.Transcript}\nShares_Awards: ${post.Shares_Awards}\nViral_Score: ${post.Viral_Score}\nNarrative_Hook: ${post.Narrative_Hook}\nVisual_Theme: ${post.Visual_Theme}\nCore_Story: ${post.Core_Story}\nPlatform: ${post.Platform}`;\n}).join('\\n\\n');\n\n// Return a single item with the formatted text block\nreturn [{ json: { all_viral_content: textBlock, post_count: viralPosts.length } }];"
+        "jsCode": "// Filter Stage 2 - Emit ONE item per post so Gemini generates exactly ONE script per post\nconst allItems = $input.all();\nconst output = [];\n\nfor (const item of allItems) {\n  const fields = item.json.fields || {};\n  const status = fields.Status || item.json.Status || item.json.status || fields.status || '';\n\n  if (status.toString().trim() === 'Generate Script') {\n    const post_id = item.json.id || fields.Post_ID || item.json.Post_ID || item.id || '';\n    const content = fields.Content || item.json.Content || item.json.content || '';\n    const transcript = fields.Transcript || item.json.Transcript || item.json.transcript || '';\n    const shares = fields.Shares_Awards || item.json.Shares_Awards || fields.Engagement_Rate || item.json.engagement_rate || 0;\n    const viral_score = fields.Viral_Score || item.json.Viral_Score || 0;\n    const hook = fields.Narrative_Hook || item.json.Narrative_Hook || item.json.narrative_hook || '';\n    const theme = fields.Visual_Theme || item.json.Visual_Theme || item.json.visual_theme || '';\n    const story = fields.Core_Story || item.json.Core_Story || item.json.core_story || '';\n    const platform = fields.Platform || item.json.Platform || item.json.platform || '';\n\n    const postBlock = `===\\nPost_ID: ${post_id}\\nContent: ${content}\\nTranscript: ${transcript}\\nShares_Awards: ${shares}\\nViral_Score: ${viral_score}\\nNarrative_Hook: ${hook}\\nVisual_Theme: ${theme}\\nCore_Story: ${story}\\nPlatform: ${platform}`;\n\n    output.push({\n      json: {\n        all_viral_content: postBlock,\n        source_record_id: post_id\n      }\n    });\n  }\n}\n\nreturn output;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -17,9 +17,9 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=# VIRAL TREND & STORY TRANSPLANT ENGINE\n\n## 🧬 DATA INPUTS\n- **Deep Scrape DNA**: {{ $json.all_viral_content }}\n- **Current Cultural Context**: {{ $json.trend_reason || 'N/A' }}\n\n---\n\n## 🎯 TARGET NICHES\n- Tech Industry / Software Development\n- AI Workflows / Automation\n- Startup Life / Founding / Scaling\n- Business Productivity Tools\n\n---\n\n## STEP 1 — ANALYZE VIRAL ARCHITECTURE\nFor each viral post/trend, extract the CORE FORMULA:\n1. **The Hook Mechanic**: (e.g., 'The Lying Robot' meme, the 'I can't believe I found this' warning)\n2. **The Visual Rhythm**: (Fast cuts, screen sharing, talking head with specific emotion)\n3. **The Logical Arc**: (Pain → Revelation → Solution → CTA)\n\n---\n\n## STEP 2 — THE NIHE TRANSPLANT (CRITICAL)\nYou are NOT translating. You are TRANSPLANTING.\nTake the *Format* and *Energy*, but build a *Tech-Native Story*.\n\n### EXAMPLE: THE \"SUNDAR PICHAI ROBOT MEME\" TRANSPLANT\n- **Original Viral Context**: Sundar Pichai looks like a robot while testifying; people make memes about him being powered down or glitching.\n- **Transplant Strategy**: Use the concept of \"The glitch in the system\" or \"The secret power-up\".\n- **Resulting Script**: \"I found a glitch in the AI workforce that Sundar probably doesn't want you to know. While everyone is talking about robot layoffs, the real players are using this [Tool Name] to replace 40 hours of work with 1 prompt. Don't glitch out. Comment AI for the link.\"\n\n---\n\n## STEP 3 — GENERATE 5 HIGH-CONVERTING SCRIPTS\n\nSTRICT RULES:\n- **Word Count**: Max 60 words per script.\n- **Niche Focus**: Must be relevant to Founders, Devs, or Tech Enthusiasts.\n- **Natural Integration**: The brand/tool must enter as the \"Solution\" to the viral tension.\n- **No Hashtags**: Do not include hashtags in the spoken script.\n- **Natural CTA**: Use keyword-based CTAs (e.g., 'Comment TOOLS').\n\n---\n\n## OUTPUT FORMAT\nReturn ONLY a valid JSON object. No markdown. No extra text.\n\n{\n  \"scripts\": [\n    {\n      \"script_title\": \"[Niche Topic] - [Viral Format Name]\",\n      \"variation\": 1,\n      \"scenes\": [\n        {\n          \"type\": \"hook\",\n          \"text\": \"[The attention-grabbing first line using viral cadence]\",\n          \"visual\": \"[Opening shot description]\",\n          \"duration\": 4,\n          \"avatar_visible\": true\n        },\n        {\n          \"type\": \"main\",\n          \"text\": \"[The niche value proposition using the viral arc]\",\n          \"visual\": \"[B-roll or screen share description]\",\n          \"duration\": 12,\n          \"avatar_visible\": false\n        },\n        {\n          \"type\": \"cta\",\n          \"text\": \"[The engagement mechanic translated for the niche]\",\n          \"visual\": \"[Closing call to action]\",\n          \"duration\": 4,\n          \"avatar_visible\": true\n        }\n      ],\n      \"tone\": \"[Aggressive / Insightful / Humorous / Educational]\",\n      \"target_platforms\": [\"Instagram\", \"TikTok\", \"Shorts\"],\n      \"estimated_duration\": 20\n    }\n  ]\n}",
+        "text": "=# VIRAL CONTENT ADVERTISING ENGINE\n\n## RAW VIRAL DATA INPUTS\n{{ $json.all_viral_content }}\n\n---\n\n## WHO YOU ARE\nYou are a viral content strategist and direct-response marketer for B2B SaaS.\nYou do NOT write generic ads.\nYou FIRST analyze what type of viral content you are dealing with.\nThen you write a talking head script that matches THAT content type's energy, format, and emotional trigger.\nThe content type determines the script style. Never force a character story onto breaking news. Never force a news format onto a meme. Match the energy.\n\n---\n\n## THE BRANDS (Choose One Per Script)\n1. **ScaleBuild**: Target: Founders/Agencies. Pitch: Build audiences, scale systems, stop grinding manually.\n2. **ScaleLova AI**: Target: Marketers/Ops. Pitch: Automate everything, AI workflows, eliminate 40 hours of manual work.\n\n---\n\n## STEP 1 — CLASSIFY THE VIRAL CONTENT TYPE\n\nBefore writing anything, read the post data and assign it ONE of the following content types:\n\n| Type | Description | Script Style to Use |\n|---|---|---|\n| **NEWS** | Breaking news, political event, world event, crisis | Hot Take — give a sharp, controversial business opinion on the news |\n| **AI / TECH INNOVATION** | New tool, model launch, tech breakthrough | Authority Play — position yourself as the expert who already knew this was coming |\n| **CHARACTER / EMOTION** | A person's story, struggle, triumph, embarrassing moment | Mirror Story — make the viewer see themselves in that character's situation |\n| **MEME / HUMOR** | Funny format, absurd situation, relatable joke | Comedian Hook — use the joke's punchline structure to land your pitch |\n| **WAR / CONFLICT / TENSION** | Geopolitical conflict, social conflict, confrontation | Stakes Raiser — use the conflict's urgency to make business inaction feel dangerous |\n| **SCIENCE / NATURE / DISCOVERY** | Space, biology, animal behavior, environment | Curiosity Hook — open with the awe or shock, then pivot to business insight |\n| **SPORTS / COMPETITION** | Athletic achievement, failure, rivalry | Underdog or Champion Frame — tie winning/losing to business performance |\n| **FINANCE / ECONOMY** | Markets, recession, inflation, wealth news | Fear or Greed Trigger — tap into financial anxiety or ambition |\n| **LIFESTYLE / CULTURE** | Trends, fashion, celebrity, social behavior | Identity Play — make the viewer feel left behind or ahead of the curve |\n\n---\n\n## STEP 2 — APPLY THE MATCHING SCRIPT STYLE\n\nOnce you have classified the content type, write the script using the rules for THAT type:\n\n---\n\n### IF TYPE = NEWS\n- Open with your HOT TAKE on what this news means for business owners RIGHT NOW.\n- Do not report the news. React to it like a founder who sees the angle no one else does.\n- Example Hook: \\\"Everyone's panicking about [news topic]. Smart operators are doing the opposite.\\\"\n\n---\n\n### IF TYPE = AI / TECH INNOVATION\n- Open by making the viewer feel like they are already behind.\n- Position yourself as someone who saw this coming and already adapted.\n- Example Hook: \\\"While everyone is just hearing about [innovation], I've been using it to automate [specific task] for 3 months.\\\"\n\n---\n\n### IF TYPE = CHARACTER / EMOTION\n- Drop the viewer directly into the character's emotional peak.\n- Make them feel they ARE that person right now.\n- Use the character's conflict as a mirror for a specific business pain.\n- Example Hook: \\\"You know exactly what that feels like. Doing everything right and still watching it fall apart.\\\"\n\n---\n\n### IF TYPE = MEME / HUMOR\n- Use the meme's joke structure (setup -> punchline) but redirect the punchline at a business pain.\n- Keep it light and fast in the hook, then pivot hard to reality in the agitation.\n- Example Hook: \\\"This is literally every founder trusting a VA to handle their entire pipeline manually.\\\"\n\n---\n\n### IF TYPE = WAR / CONFLICT / TENSION\n- Use the urgency and stakes of the conflict to make business complacency feel like surrender.\n- Frame manual work or slow systems as the enemy attacking them daily.\n- Example Hook: \\\"Every day you run your business manually, you are losing ground to someone who already automated it.\\\"\n\n---\n\n### IF TYPE = SCIENCE / NATURE / DISCOVERY\n- Open with the wow moment — the fact or discovery that stops the scroll.\n- Immediately pivot: \\\"The same principle is happening in your business right now.\\\"\n- Example Hook: \\\"It took [discovery fact] to happen naturally. Your competition isn't waiting for nature. They're using AI.\\\"\n\n---\n\n### IF TYPE = SPORTS / COMPETITION\n- Frame the viewer as either the underdog who can win or the champion about to be overtaken.\n- Tie athletic performance directly to business systems and speed.\n- Example Hook: \\\"The difference between first and second place is not talent. It's the system behind the athlete.\\\"\n\n---\n\n### IF TYPE = FINANCE / ECONOMY\n- Tap into fear (losing money, falling behind) OR greed (the opportunity hiding in the chaos).\n- Make inaction feel like a financial decision they are already making poorly.\n- Example Hook: \\\"While the market is doing that, your competitors just cut costs by automating their entire ops team.\\\"\n\n---\n\n### IF TYPE = LIFESTYLE / CULTURE\n- Make the viewer feel they are either ahead of a trend or dangerously behind it.\n- Use social identity and status to drive urgency.\n- Example Hook: \\\"The founders still doing this manually are the new people who refused to get a smartphone in 2010.\\\"\n\n---\n\n## STEP 3 — UNIVERSAL SCRIPT STRUCTURE (Apply to ALL types)\n\nEvery script follows this structure regardless of content type:\n\n**HOOK (0-4s)**: Stop the scroll. Use the classified style's opening technique. Present tense. Visceral. No \\\"Did you see...\\\" ever.\n\n**AGITATION (4-12s)**: Name the SPECIFIC manual business pain. Not generic. Real tasks. Real consequences. Make them feel it.\n\n**PITCH + CTA (12-20s)**: Position ScaleBuild or ScaleLova AI as the solution that matches the emotional resolution of the content type. One hard CTA.\n\n---\n\n## STRICT RULES\n- 60-70 words max total across all three scenes combined.\n- Never mention the original video, creator, or platform by name.\n- Never say \\\"Did you see...\\\" / \\\"This video...\\\" / \\\"Going viral...\\\"\n- No hashtags in the spoken script.\n- Always write in first or second person only — \\\"you\\\" or \\\"I\\\".\n- Name a specific real pain point — never vague phrases like \\\"scale your business.\\\"\n- The classified content type's energy must carry through all three scenes.\n\n---\n\n## OUTPUT FORMAT\nReturn ONLY valid JSON. No markdown. No explanation. No extra text.\n\n{\n  \\\"scripts\\\": [\n    {\n      \\\"script_title\\\": \\\"[Brand] - [Content Type] - [Core Hook Angle]\\\",\n      \\\"content_type_detected\\\": \\\"[NEWS / AI-TECH / CHARACTER-EMOTION / MEME / WAR-CONFLICT / SCIENCE / SPORTS / FINANCE / LIFESTYLE]\\\",\n      \\\"script_style_applied\\\": \\\"[Hot Take / Authority Play / Mirror Story / Comedian Hook / Stakes Raiser / Curiosity Hook / Underdog Frame / Fear Trigger / Identity Play]\\\",\n      \\\"core_pain_targeted\\\": \\\"[The specific business task or pain extracted from the viral content context]\\\",\n      \\\"variation\\\": 1,\n      \\\"scenes\\\": [\n        {\n          \\\"type\\\": \\\"hook\\\",\n          \\\"text\\\": \\\"[Scroll-stopping open using the classified style — present tense — visceral]\\\",\n          \\\"visual\\\": \\\"[Talking head: expression matching the content type energy]\\\",\n          \\\"duration\\\": 4,\n          \\\"avatar_visible\\\": true\n        },\n        {\n          \\\"type\\\": \\\"main\\\",\n          \\\"text\\\": \\\"[Specific business pain agitation — real tasks — real consequences — twist the knife]\\\",\n          \\\"visual\\\": \\\"[B-roll or screen recording matching the pain being described]\\\",\n          \\\"duration\\\": 12,\n          \\\"avatar_visible\\\": false\n        },\n        {\n          \\\"type\\\": \\\"cta\\\",\n          \\\"text\\\": \\\"[Brand as the resolution — hard single CTA]\\\",\n          \\\"visual\\\": \\\"[Talking head pointing down with urgency]\\\",\n          \\\"duration\\\": 4,\n          \\\"avatar_visible\\\": true\n        }\n      ],\n      \\\"tone\\\": \\\"[Empathetic-Aggressive / Hot-Take / Comedic-Pivot / Urgent-Authority / Awe-to-Action]\\\",\n      \\\"target_platforms\\\": [\\\"Instagram\\\", \\\"TikTok\\\", \\\"Shorts\\\"],\n      \\\"estimated_duration\\\": 20\n    }\n  ]\n}",
         "batching": {
-          "batchSize": 20
+          "batchSize": 1
         }
       },
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
@@ -36,7 +36,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Advanced Batch Script Parser - Splits 5 variations into separate Airtable items\nconst input = $input.first();\nconst rawText = input.json.text || '';\nconst output = [];\n\nlet parsed = {};\ntry {\n  parsed = JSON.parse(rawText);\n} catch (e) {\n  const jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);\n}\n\nconst scripts = parsed.scripts || [];\n\nfor (const script of scripts) {\n  if (script.scenes) {\n    const hook = script.scenes.filter(s => s.type === 'hook').map(s => s.text).join(' ');\n    const main = script.scenes.filter(s => s.type === 'main').map(s => s.text).join(' ');\n    const cta = script.scenes.filter(s => s.type === 'cta').map(s => s.text).join(' ');\n    const visuals = script.scenes.map(s => s.visual).join(' | ');\n\n    output.push({\n      json: {\n        script_title: script.script_title || 'New Batch Script',\n        hook: hook,\n        main_content: main,\n        cta: cta,\n        visual_cues: visuals,\n        tone: script.tone || 'Professional',\n        target_platforms: script.target_platforms || ['Instagram'],\n        estimated_duration: script.estimated_duration || 20,\n        hashtags: script.hashtags || [],\n        variation: script.variation || 1\n      }\n    });\n  }\n}\n\nreturn output;"
+        "jsCode": "// Parse AI Script - Extracts scenes and forwards source_record_id for Airtable linking\nconst input = $input.first();\nconst rawText = input.json.text || '';\nconst source_record_id = input.json.source_record_id || '';\nconst output = [];\n\nlet parsed = {};\ntry {\n  parsed = JSON.parse(rawText);\n} catch (e) {\n  const jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);\n}\n\nconst scripts = parsed.scripts || [];\n\nfor (const script of scripts) {\n  if (script.scenes) {\n    const hook = script.scenes.filter(s => s.type === 'hook').map(s => s.text).join(' ');\n    const main = script.scenes.filter(s => s.type === 'main').map(s => s.text).join(' ');\n    const cta = script.scenes.filter(s => s.type === 'cta').map(s => s.text).join(' ');\n    const visuals = script.scenes.map(s => s.visual).join(' | ');\n\n    output.push({\n      json: {\n        script_title: script.script_title || 'New Script',\n        source_record_id: source_record_id,\n        hook: hook,\n        main_content: main,\n        cta: cta,\n        visual_cues: visuals,\n        tone: script.tone || 'Professional',\n        content_type_detected: script.content_type_detected || '',\n        script_style_applied: script.script_style_applied || '',\n        core_pain_targeted: script.core_pain_targeted || '',\n        target_platforms: script.target_platforms || ['Instagram'],\n        estimated_duration: script.estimated_duration || 20,\n        hashtags: script.hashtags || [],\n        variation: script.variation || 1\n      }\n    });\n  }\n}\n\nreturn output;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -145,7 +145,8 @@
     },
     {
       "parameters": {
-        "operation": "list",
+        "operation": "search",
+        "returnAll": true,
         "base": {
           "__rl": true,
           "value": "={{ $env.AIRTABLE_BASE_ID }}",
@@ -155,7 +156,9 @@
           "__rl": true,
           "value": "={{ $env.AT_TABLE_VIRAL_DB }}",
           "mode": "id"
-        }
+        },
+        "filterByFormula": "{Status} = 'Generate Script'",
+        "options": {}
       },
       "id": "get-analyzed-content-id",
       "name": "Get Analyzed Content",
@@ -625,7 +628,12 @@
               "responseFormat": "json"
             }
           },
-          "timeout": 120000
+          "timeout": 120000,
+          "batching": {
+            "batch": {
+              "batchSize": 1
+            }
+          }
         }
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -636,11 +644,12 @@
       ],
       "id": "apify-scraper-id",
       "name": "Apify: Scrape Instagram Reels",
+      "executeOnce": false,
       "notes": "Actor: apify~instagram-reel-scraper\nTimestamp: May take 30-60s. Sync mode returns results directly.\nIf timeout: switch to async run + poll dataset."
     },
     {
       "parameters": {
-        "jsCode": "// Normalize Apify Instagram Reel Scraper output\n// The actor returns an array of reel objects\nconst rawItems = $input.first().json;\nconst items = Array.isArray(rawItems) ? rawItems : [rawItems];\n\nconst normalized = items\n  .filter(item => item.code || item.shortCode || item.shortcode || item.id || item.reel_id)\n  .map(item => {\n    const metrics = item.engagement_metrics || {};\n    const details = item.content_details || {};\n\n    return {\n      json: {\n        // Identity\n        content_code:   item.shortcode || item.code || item.shortCode || item.reel_id || item.id || '',\n        url:            item.url  || `https://www.instagram.com/reel/${item.shortcode || item.code || item.shortCode}/`,\n        video_url:      item.video_url || item.videoUrl || '',\n        platform:       'Instagram',\n\n        // Content / Caption\n        prompt:         details.caption || item.caption?.text || item.text || item.caption || '',\n        timestamp:      item.scraped_at || item.taken_at_ts || item.taken_at || item.timestamp || new Date().toISOString(),\n\n        // Engagement Metrics\n        likes:          metrics.like_count || item.like_count || item.likesCount || 0,\n        comments:       metrics.comment_count || item.comment_count || item.commentsCount || 0,\n        views:          metrics.play_count || item.ig_play_count || item.play_count || item.videoViewCount || 0,\n        shares:         metrics.share_count || item.share_count || item.sharesCount || 0,\n        saves:          metrics.save_count || item.savesCount || item.saves || 0,\n\n        // Subtitles (New)\n        subtitle_url:   item.video_subtitles_uri || '',\n\n        // Author Metadata\n        author:         item.creator?.username || item.user?.username || item.ownerUsername || item.username || '',\n        author_id:      item.creator?.id || item.user?.id || item.ownerId || item.userId || '',\n        followers:      item.creator?.follower_count || item.owner?.followedByCount || 0,\n\n        // Computed\n        engagement_rate: (\n          ((metrics.like_count || 0) + (metrics.comment_count || 0)) /\n          Math.max(metrics.play_count || item.ig_play_count || item.play_count || 1, 1) * 100\n        ).toFixed(2),\n\n        // Pass through optimized query\n        trend_keyword: item._trend_keyword || ''\n      }\n    };\n  });\n\nreturn normalized.length > 0 ? normalized : [{ json: { error: 'No reels found', raw: rawItems } }];"
+        "jsCode": "// Normalize Apify Instagram Reel Scraper output (Batch Mode)\nconst airtableKeywords = $items(\"Parse Keywords\");\nlet normalized = [];\n\nconst inputs = $input.all();\ninputs.forEach((input, index) => {\n  // Find the keyword that triggered this specific search\n  const keywordData = airtableKeywords[index] ? airtableKeywords[index].json : {};\n  const parentKeyword = keywordData.optimized_query || keywordData.Search_Keyword || \"\";\n\n  // Handle Apify's variable output structure\n  const raw = input.json;\n  let rawArray = [];\n  if (Array.isArray(raw)) {\n    rawArray = raw;\n  } else if (raw && raw.data && Array.isArray(raw.data)) {\n    rawArray = raw.data;\n  } else if (raw) {\n    rawArray = [raw];\n  }\n\n  // Filter and map this keyword's specific reels\n  const mappedReels = rawArray\n    .filter(item => item && (item.code || item.shortCode || item.shortcode || item.id || item.reel_id))\n    .map(item => {\n      const metrics = item.engagement_metrics || {};\n      const details = item.content_details || {};\n\n      return {\n        json: {\n          // Identity\n          content_code:   item.shortcode || item.code || item.shortCode || item.reel_id || item.id || '',\n          url:            item.url  || `https://www.instagram.com/reel/${item.shortcode || item.code || item.shortCode}/`,\n          video_url:      item.video_url || item.videoUrl || '',\n          platform:       'Instagram',\n\n          // Content / Caption\n          prompt:         details.caption || item.caption?.text || item.text || item.caption || '',\n          timestamp:      item.scraped_at || item.taken_at_ts || item.taken_at || item.timestamp || new Date().toISOString(),\n\n          // Engagement Metrics\n          likes:          metrics.like_count || item.like_count || item.likesCount || 0,\n          comments:       metrics.comment_count || item.comment_count || item.commentsCount || 0,\n          views:          metrics.play_count || item.ig_play_count || item.play_count || item.videoViewCount || 0,\n          shares:         metrics.share_count || item.share_count || item.sharesCount || 0,\n          saves:          metrics.save_count || item.savesCount || item.saves || 0,\n\n          // Subtitles (New)\n          subtitle_url:   item.video_subtitles_uri || '',\n\n          // Author Metadata\n          author:         item.creator?.username || item.user?.username || item.ownerUsername || item.username || '',\n          author_id:      item.creator?.id || item.user?.id || item.ownerId || item.userId || '',\n          followers:      item.creator?.follower_count || item.owner?.followedByCount || 0,\n\n          // Computed\n          engagement_rate: (\n            ((metrics.like_count || 0) + (metrics.comment_count || 0)) /\n            Math.max(metrics.play_count || item.ig_play_count || item.play_count || 1, 1) * 100\n          ).toFixed(2),\n\n          // Pass through optimized query\n          trend_keyword: parentKeyword\n        }\n      };\n    });\n    \n  normalized = normalized.concat(mappedReels);\n});\n\nreturn normalized.length > 0 ? normalized : [{ json: { error: 'No reels found', raw: $input.all() } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -653,48 +662,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Filter: only keep reels with 50k+ likes OR 500k+ views (worth transcribing)\nconst items = $input.all();\nreturn items.filter(item => {\n  const likes = Number(item.json.likes) || 0;\n  const views = Number(item.json.views) || 0;\n  return likes >= 50000 || views >= 500000;\n});"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        3040,
-        -960
-      ],
-      "id": "filter-viral-reels-id",
-      "name": "Filter: 50k+ Likes or 500k+ Views"
-    },
-    {
-      "parameters": {
-        "content": "## STEP 4: LOOP OVER REELS\nProcess each reel one by one.\nFFmpeg + Whisper runs per reel.",
-        "width": 340,
-        "color": 6
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        1840,
-        -1248
-      ],
-      "typeVersion": 1,
-      "id": "note-step4",
-      "name": "Note Step4"
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
-      "position": [
-        3264,
-        -960
-      ],
-      "id": "loop-reels-id",
-      "name": "Loop Over Reels"
-    },
-    {
-      "parameters": {
-        "url": "={{ $json.subtitle_url }}",
+        "url": "={{ ($json.subtitle_url && $json.subtitle_url.startsWith('http')) ? $json.subtitle_url : 'https://httpbin.org/status/200' }}",
         "options": {
           "response": {
             "response": {
@@ -715,7 +683,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Clean SRT subtitles into plain text\nconst srt = $input.first().json.data || \"\";\nif (!srt) return { json: { transcript: \"\" } };\n\nconst clean = srt\n  .replace(/\\d+\\n\\d{2}:\\d{2}:\\d{2},\\d{3} --> \\d{2}:\\d{2}:\\d{2},\\d{3}/g, \"\")\n  .replace(/<[^>]*>/g, \"\")\n  .replace(/\\n\\s*\\n/g, \"\\n\")\n  .trim();\n\nreturn { json: { transcript: clean } };"
+        "jsCode": "// Clean SRT subtitles into plain text and merge perfectly with original metadata\nconst originalItems = $items(\"Normalize Reel Metadata\");\n\nreturn $input.all().map((item, index) => {\n  const originalReel = originalItems[index] ? originalItems[index].json : {};\n  const srt = item.json.data || \"\";\n  let clean = \"\";\n  \n  if (originalReel.subtitle_url && typeof srt === 'string') {\n    clean = srt\n      .replace(/\\d+\\n\\d{2}:\\d{2}:\\d{2},\\d{3} --> \\d{2}:\\d{2}:\\d{2},\\d{3}/g, \"\")\n      .replace(/<[^>]*>/g, \"\")\n      .replace(/\\n\\s*\\n/g, \"\\n\")\n      .trim();\n  }\n\n  return {\n    json: {\n      ...originalReel,\n      transcript: clean || originalReel.prompt || \"\"\n    }\n  };\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -729,7 +697,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=# ScaleBuild AI - Viral Content Analyst\n\n## Viral DNA\n- **Platform**: {{ $json.platform || 'Instagram' }}\n- **Post ID**: {{ $json.content_code }}\n- **Caption/Content**: {{ $json.prompt }}\n- **Transcript (Clean)**: {{ $node[\"Clean Subtitles\"].json.transcript || 'No transcript available' }}\n- **Likes**: {{ $json.likes }}\n- **Comments**: {{ $json.comments }}\n- **Views**: {{ $json.views }}\n- **Shares**: {{ $json.shares }}\n- **Saves**: {{ $json.saves }}\n- **Engagement Rate**: {{ $json.engagement_rate }}%\n- **Trend Keyword That Found This**: {{ $json.trend_keyword }}\n\n## Task\nAnalyze this viral reel and reverse-engineer its viral chemistry.\nFocus on the STORY, NARRATIVE HOOK, and what made it spread.\nUse the cleaned transcript as the PRIMARY source for understanding the content.\n\nOutput ONLY a valid JSON object. No markdown. No extra text.\n\n{\n  \"viral_score\": 0,\n  \"engagement_score\": 0,\n  \"narrative_hook\": \"\",\n  \"content_structure\": \"\",\n  \"emotional_triggers\": \"\",\n  \"viral_elements\": \"\",\n  \"script_framework\": \"\",\n  \"hook_pattern\": \"\"\n}",
+        "text": "=# ScaleBuild AI - Viral Content Analyst\n\n## Viral DNA\n- **Platform**: {{ $json.platform || 'Instagram' }}\n- **Post ID**: {{ $json.content_code }}\n- **Caption/Content**: {{ $json.prompt }}\n- **Transcript (Clean)**: {{ $json.transcript || $json.prompt || 'No transcript available' }}\n- **Likes**: {{ $json.likes }}\n- **Comments**: {{ $json.comments }}\n- **Views**: {{ $json.views }}\n- **Shares**: {{ $json.shares }}\n- **Saves**: {{ $json.saves }}\n- **Engagement Rate**: {{ $json.engagement_rate }}%\n- **Trend Keyword That Found This**: {{ $json.trend_keyword }}\n\n## Task\nAnalyze this viral reel and reverse-engineer its viral chemistry.\nFocus on the STORY, NARRATIVE HOOK, and what made it spread.\nUse the cleaned transcript as the PRIMARY source for understanding the content.\n\nOutput ONLY a valid JSON object. No markdown. No extra text.\n\n{\n  \"viral_score\": 0,\n  \"engagement_score\": 0,\n  \"narrative_hook\": \"\",\n  \"content_structure\": \"\",\n  \"emotional_triggers\": \"\",\n  \"viral_elements\": \"\",\n  \"script_framework\": \"\",\n  \"hook_pattern\": \"\"\n}",
         "batching": {
           "batchSize": 1
         }
@@ -768,7 +736,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Parse Gemini's JSON response and merge with reel metadata\nconst geminiOutput = $input.first().json;\nconst rawText = geminiOutput.text || geminiOutput.output || '';\n\n// Get original reel data from the node before storage\nconst reelData = $node['Clean Subtitles'].json;\n\nlet analysis = {};\ntry {\n  analysis = JSON.parse(rawText);\n} catch(e) {\n  // Try to extract JSON block\n  const match = rawText.match(/\\{[\\s\\S]*\\}/);\n  if (match) {\n    try { analysis = JSON.parse(match[0]); } catch(e2) {}\n  }\n}\n\nconst toString = (val) => {\n  if (val === undefined || val === null) return '';\n  if (typeof val === 'object') return JSON.stringify(val);\n  return String(val);\n};\n\nreturn [{\n  json: {\n    // Reel Metadata\n    content_code:       reelData.content_code,\n    url:                reelData.url,\n    platform:           reelData.platform,\n    prompt:             reelData.prompt,\n    author:             reelData.author,\n    trend_keyword:      reelData.trend_keyword,\n    timestamp:          reelData.timestamp,\n\n    // Engagement Metrics\n    likes:              reelData.likes,\n    comments:           reelData.comments,\n    views:              reelData.views,\n    shares:             reelData.shares || reelData.share_count || 0,\n    saves:              reelData.saves || reelData.save_count || 0,\n    followers:          reelData.followers,\n    engagement_rate:    reelData.engagement_rate,\n\n    // Clean Transcript\n    transcript:         reelData.transcript,\n\n    // Gemini Analysis\n    viral_score:        analysis.viral_score || 0,\n    engagement_score:   analysis.engagement_score || 0,\n    narrative_hook:     toString(analysis.narrative_hook || analysis.hook_pattern),\n    hook_pattern:       toString(analysis.hook_pattern   || analysis.narrative_hook),\n    content_structure:  toString(analysis.content_structure),\n    emotional_triggers: toString(analysis.emotional_triggers),\n    viral_elements:     toString(analysis.viral_elements),\n    script_framework:   toString(analysis.script_framework)\n  }\n}];"
+        "jsCode": "// Parse Gemini's JSON response and perfectly sync with clean metadata\nconst originalItems = $items(\"Clean Subtitles\");\n\nreturn $input.all().map((item, index) => {\n  const originalReel = originalItems[index] ? originalItems[index].json : {};\n  const rawText = item.json.text || item.json.output || '';\n  \n  let analysis = {};\n  try {\n    analysis = JSON.parse(rawText);\n  } catch(e) {\n    // Try to extract JSON block\n    const match = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (match) {\n      try { analysis = JSON.parse(match[0]); } catch(e2) {}\n    }\n  }\n\n  const toString = (val) => {\n    if (val === undefined || val === null) return '';\n    if (typeof val === 'object') return JSON.stringify(val);\n    return String(val);\n  };\n\n  return {\n    json: {\n      ...originalReel,\n      // Gemini Analysis\n      viral_score:        analysis.viral_score || 0,\n      engagement_score:   analysis.engagement_score || 0,\n      narrative_hook:     toString(analysis.narrative_hook || analysis.hook_pattern),\n      hook_pattern:       toString(analysis.hook_pattern   || analysis.narrative_hook),\n      content_structure:  toString(analysis.content_structure),\n      emotional_triggers: toString(analysis.emotional_triggers),\n      viral_elements:     toString(analysis.viral_elements),\n      script_framework:   toString(analysis.script_framework)\n    }\n  };\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -831,7 +799,7 @@
             "Emotional_Triggers": "={{ $json.emotional_triggers }}",
             "Viral_Elements ": "={{ $json.viral_elements }}",
             "Script_Framework": "={{ $json.script_framework }}",
-            "Transcript": "={{ $node[\"Clean Subtitles\"].json.transcript }}",
+            "Transcript": "={{ $json.transcript }}",
             "Status": "Analyzed",
             "Created_Date": "={{ $now.format('yyyy-MM-dd') }}"
           }
@@ -1457,28 +1425,6 @@
       "main": [
         [
           {
-            "node": "Filter: 50k+ Likes or 500k+ Views",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Filter: 50k+ Likes or 500k+ Views": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Reels",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Loop Over Reels": {
-      "main": [
-        [
-          {
             "node": "Fetch Subtitles (SRT)",
             "type": "main",
             "index": 0
@@ -1535,17 +1481,6 @@
         [
           {
             "node": "Store in Viral Content DB",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Store in Viral Content DB": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Reels",
             "type": "main",
             "index": 0
           }
