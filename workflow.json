@@ -1201,7 +1201,18 @@
 
     {
       "parameters": {
-        "jsCode": "// Combine data from all previous steps\nconst classifyVeoNode = $node['Classify VEO Status']?.first()?.json || {};\nconst viralContentData = $input.first().json || {};\n\n// Merge all data, prioritizing viral content data\nconst mergedData = {\n  ...classifyVeoNode,\n  ...viralContentData,\n  veo_video_url: classifyVeoNode.veo_video_url|| '',\n  heygen_video_id: classifyVeoNode.heygen_video_id || '',\n  viral_b_roll_url: viralContentData.viral_b_roll_url || viralContentData.Post_URL || '',\n  veo_prompt: viralContentData.veo_prompt || classifyVeoNode.veo_prompt || '',\n  story_narrative: viralContentData.story_narrative || '',\n  viral_caption: viralContentData.viral_caption || viralContentData.Caption || '',\n  viral_transcript: viralContentData.viral_transcript || viralContentData.Transcript || '',\n  viral_content: viralContentData.viral_content || viralContentData.Content || '',\n  airtable_record_id: classifyVeoNode.airtable_record_id || classifyVeoNode.id || '',\n  source_content_id: classifyVeoNode.source_content_id || classifyVeoNode.Source_Content_ID || viralContentData.id || ''\n};\n\nreturn [{ json: mergedData }];"
+        "jsCode": "// Allow manual override of HeyGen Avatar ID for reuse\n// If you want to use a specific avatar ID, set it in the manualAvatarId variable below\nconst manualAvatarId = ''; // SET YOUR HEYGEN AVATAR ID HERE if you want to override\nconst item = $input.first().json;\n\nif (manualAvatarId && manualAvatarId.trim()) {\n  console.log('Using manual HeyGen Avatar ID:', manualAvatarId);\n  item.heygen_avatar_id_override = manualAvatarId;\n  item.using_manual_avatar = true;\n} else {\n  console.log('Using avatar ID from HeyGen response:', item.heygen_video_id);\n  item.using_manual_avatar = false;\n}\n\nreturn [{ json: item }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [820, 570],
+      "id": "manual-heygen-avatar-id-s3s4",
+      "name": "Manual HeyGen Avatar ID Input"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Combine data from all previous steps\nconst classifyVeoNode = $node['Classify VEO Status']?.first()?.json || {};\nconst viralContentData = $input.first().json || {};\n\n// Merge all data, prioritizing viral content data\nconst mergedData = {\n  ...classifyVeoNode,\n  ...viralContentData,\n  veo_video_url: classifyVeoNode.veo_video_url|| '',\n  heygen_video_id: classifyVeoNode.heygen_video_id || '',\n  heygen_avatar_id_override: viralContentData.heygen_avatar_id_override || '',\n  using_manual_avatar: viralContentData.using_manual_avatar || false,\n  viral_b_roll_url: viralContentData.viral_b_roll_url || viralContentData.Post_URL || '',\n  veo_prompt: viralContentData.veo_prompt || classifyVeoNode.veo_prompt || '',\n  story_narrative: viralContentData.story_narrative || '',\n  viral_caption: viralContentData.viral_caption || viralContentData.Caption || '',\n  viral_transcript: viralContentData.viral_transcript || viralContentData.Transcript || '',\n  viral_content: viralContentData.viral_content || viralContentData.Content || '',\n  airtable_record_id: classifyVeoNode.airtable_record_id || classifyVeoNode.id || '',\n  source_content_id: classifyVeoNode.source_content_id || classifyVeoNode.Source_Content_ID || viralContentData.id || ''\n};\n\nreturn [{ json: mergedData }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -1797,6 +1808,9 @@
       "main": [[{"node": "Classify VEO Status", "type": "main", "index": 0}]]
     },
     "Classify VEO Status": {
+      "main": [[{"node": "Manual HeyGen Avatar ID Input", "type": "main", "index": 0}]]
+    },
+    "Manual HeyGen Avatar ID Input": {
       "main": [[{"node": "Merge All Assets Data", "type": "main", "index": 0}]]
     },
     "Merge All Assets Data": {
