@@ -16,3 +16,6 @@ backups/
 # System
 .DS_Store
 Thumbs.db
+
+# Generated setup files
+credentials.json

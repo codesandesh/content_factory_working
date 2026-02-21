@@ -17,22 +17,51 @@ fi
 echo "Creating local directories..."
 mkdir -p media scripts videos logs backups/postgres
 
-# Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
-    echo "Error: Docker is not running!"
-    exit 1
-fi
+# Source .env for dynamic credential generation
+set -a
+source .env
+set +a
+
+# Generate n8n credentials from .env
+echo "Generating n8n credentials..."
+cat <<EOF > credentials.json
+[
+  {
+    "id": "h68hvDXg5Xigfz5P",
+    "name": "Airtable Personal Access Token account",
+    "type": "airtableTokenApi",
+    "data": {
+      "accessToken": "$AIRTABLE_API_KEY"
+    }
+  },
+  {
+    "id": "igaSdthsiO1WHIs5",
+    "name": "Google Gemini(PaLM) Api account",
+    "type": "googlePalmApi",
+    "data": {
+      "apiKey": "$GOOGLE_GEMINI_API_KEY"
+    }
+  }
+]
+EOF
 
 # Start services
 echo "Launching containers..."
 docker compose up -d
 
+# Automated Import
+echo "Automating n8n setup..."
+docker cp workflow.json n8n_content_factory:/tmp/workflow.json
+docker cp credentials.json n8n_content_factory:/tmp/credentials.json
+
+docker exec n8n_content_factory n8n import:credentials --input=/tmp/credentials.json || true
+docker exec n8n_content_factory n8n import:workflow --input=/tmp/workflow.json --update || true
+
 echo ""
-echo "Workflow is ready to be imported!"
+echo "Viral Content Factory is LIVE! 🚀"
 echo "------------------------------------"
 echo "n8n URL:   http://localhost:5678"
-echo "Username:  admin"
-echo "Password:  adminpassword"
+echo "Status:    Workflow & Credentials pre-loaded."
 echo ""
-echo "Next: Import 'workflow.json' in n8n and set up Airtable."
+echo "Next: Create your owner account at the URL above."
 echo ""
