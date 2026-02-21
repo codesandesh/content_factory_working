@@ -823,141 +823,142 @@
         }
       }
     },
+
     {
       "parameters": {
-        "rule": {
-          "interval": [
-            {}
-          ]
-        }
+        "content": "## 🎥 STAGE 3: ASSET GENERATION\n**Flow**: Approved Script → ElevenLabs Voice → HeyGen Avatar (Green Screen) → Fetch Viral B-roll → Submagic Assembly\n**Triggers**: Manual trigger for video generation",
+        "height": 300,
+        "width": 2400,
+        "color": 6
       },
-      "id": "eb53117f-a40f-4ee5-bf2e-122dcd8c755f",
-      "name": "Trigger Approved Script",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        -192,
-        784
-      ]
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [-2400, 450],
+      "typeVersion": 1,
+      "id": "sticky-stage3",
+      "name": "STAGE 3 - Asset Generation"
     },
+
+    {
+      "parameters": {
+        "content": "## 🎬 STAGE 4: VIDEO EDITING (SUBMAGIC)\n**Flow**: HeyGen + Viral B-roll → Submagic (Harmozi Effects) → Final Video with Captions & Sync\n**Output**: Final edited video stored in Video RENDERS table",
+        "height": 300,
+        "width": 2400,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [-2400, 770],
+      "typeVersion": 1,
+      "id": "sticky-stage4",
+      "name": "STAGE 4 - Video Editing"
+    },
+
+    {
+      "parameters": {},
+      "id": "manual-s3-s4",
+      "name": "Manual Trigger (Stage 3)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-2320, 530]
+    },
+
     {
       "parameters": {
         "operation": "search",
-        "base": {
-          "__rl": true,
-          "value": "={{ $env.AIRTABLE_BASE_ID }}",
-          "mode": "id"
-        },
-        "table": {
-          "__rl": true,
-          "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}",
-          "mode": "id"
-        },
+        "base": {"__rl": true, "value": "={{ $env.AIRTABLE_BASE_ID }}", "mode": "id"},
+        "table": {"__rl": true, "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}", "mode": "id"},
         "filterByFormula": "{Status} = 'Approved'",
+        "returnAll": true,
         "options": {}
       },
-      "id": "26722e4f-a261-4def-8d29-b5dabc26c94d",
+      "id": "get-approved-scripts-s3s4",
       "name": "Get Approved Scripts",
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2.1,
-      "position": [
-        48,
-        800
-      ]
+      "position": [-2080, 570],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
     },
+
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "check-approved",
-              "leftValue": "={{ $json.Status }}",
-              "rightValue": "Approved",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
-          ],
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict"},
+          "conditions": [{"id": "has-records", "leftValue": "={{ $input.all().length }}", "rightValue": 0, "operator": {"type": "number", "operation": "gt"}}],
           "combinator": "and"
         },
         "options": {}
       },
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.2,
-      "position": [
-        256,
-        800
-      ],
-      "id": "85f67414-e0c5-4669-a1a6-e7db53e38934",
-      "name": "Filter: Status = Approved"
+      "position": [-1880, 570],
+      "id": "filter-has-scripts-s3s4",
+      "name": "Filter: Has Scripts?"
     },
+
     {
       "parameters": {
-        "jsCode": "// Stage 3 Independent Script Preparation\nconst f = $json.fields || $json;\n\nconst visualCues = f.Visual_Cues || 'Highly cinematic, futuristic AI marketing interface, professional lighting, 8k resolution, smooth motion.';\nconst hook = f.Hook || '';\nconst mainContent = f.Main_Content || '';\nconst cta = f['CTA '] || f.CTA || '';\n\nconst fullScript = [hook, mainContent, cta].filter(Boolean).join('\\n\\n');\n\nif (!fullScript) {\n  throw new Error(\"Stage 3 Failure: Script content (Hook/Main/CTA) is missing from the Airtable records provided to this stage.\");\n}\n\nreturn [{\n  json: {\n    ...$json,\n    full_script: fullScript,\n    visual_prompt: visualCues,\n    estimated_duration: parseInt(f.Estimated_Duration) || 30,\n    record_id: $json.id || f.Source_Content_ID,\n    Platform: f['Target_Platforms '] || f.Target_Platforms || 'TikTok'\n  }\n}];"
+        "jsCode": "const f = $json.fields || $json;\nconst hook = (f.Hook || '').trim();\nconst mainContent = (f.Main_Content || '').trim();\nconst cta = (f['CTA '] || f.CTA || '').trim();\nconst fullScript = [hook, mainContent, cta].filter(Boolean).join('\\n\\n');\nif (!fullScript || fullScript.length < 10) throw new Error(`Script empty for ${$json.id}`);\nreturn [{\n  json: {\n    ...($json),\n    airtable_record_id: $json.id,\n    source_content_id: f.Source_Content_ID || '',\n    script_title: f.Script_Title || f.Name || 'Untitled',\n    full_script: fullScript,\n    hook: hook,\n    main_content: mainContent,\n    cta: cta,\n    visual_prompt: (f.Visual_Cues || 'Professional, cinematic, 8k').trim(),\n    estimated_duration: parseInt(f.Estimated_Duration) || 20,\n    target_platforms: f['Target_Platforms '] || 'TikTok,Instagram',\n    tone: f.Tone || 'Professional'\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [
-        480,
-        800
-      ],
-      "id": "611b4788-b3a0-47a3-a702-f169bdc3dd04",
+      "position": [-1680, 570],
+      "id": "prepare-script-s3s4",
       "name": "Prepare Full Script"
     },
+
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nreturn [{\n  json: {\n    airtable_record_id: item.airtable_record_id,\n    source_content_id: item.source_content_id,\n    script_title: item.script_title,\n    full_script: item.full_script,\n    visual_prompt: item.visual_prompt,\n    estimated_duration: item.estimated_duration,\n    target_platforms: item.target_platforms,\n    tone: item.tone,\n    elevenlabs_request_body: JSON.stringify({\n      text: item.full_script,\n      model_id: 'eleven_multilingual_v2',\n      voice_settings: {\n        stability: 0.5,\n        similarity_boost: 0.75,\n        style: 0.0,\n        use_speaker_boost: true\n      }\n    })\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [-1480, 570],
+      "id": "prepare-elevenlabs-request-s3s4",
+      "name": "Prepare ElevenLabs Request"
+    },
+
     {
       "parameters": {
         "method": "POST",
         "url": "=https://api.elevenlabs.io/v1/text-to-speech/{{ $env.ELEVENLABS_VOICE_ID }}",
+        "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "xi-api-key",
-              "value": "={{ $env.ELEVENLABS_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
+        "headerParameters": {"parameters": [{"name": "xi-api-key", "value": "={{ $env.ELEVENLABS_API_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]},
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"text\": $node[\"Prepare Full Script\"].json.full_script,\n  \"model_id\": \"eleven_multilingual_v2\",\n  \"voice_settings\": {\n    \"stability\": 0.5,\n    \"similarity_boost\": 0.75\n  }\n} }}",
-        "options": {}
+        "contentType": "json",
+        "specifyBody": "body",
+        "bodyContent": "={{ $json.elevenlabs_request_body }}",
+        "options": {"response": {"response": {"responseFormat": "file"}}}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
-      "position": [
-        704,
-        800
-      ],
-      "id": "c1c7557c-52e5-44b7-88f7-8b28350647b9",
+      "position": [-1280, 570],
+      "id": "elevenlabs-tts-s3s4",
       "name": "Generate Voice (ElevenLabs)"
     },
+
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nreturn [{\n  json: {\n    airtable_record_id: item.json.airtable_record_id || '',\n    source_content_id: item.json.source_content_id || '',\n    script_title: item.json.script_title || '',\n    full_script: item.json.full_script || '',\n    visual_prompt: item.json.visual_prompt || '',\n    estimated_duration: item.json.estimated_duration || 20,\n    target_platforms: item.json.target_platforms || '',\n    tone: item.json.tone || ''\n  },\n  binary: item.binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [-1280, 570],
+      "id": "attach-audio-s3s4",
+      "name": "Attach Audio + Metadata"
+    },
+
     {
       "parameters": {
         "method": "POST",
         "url": "https://upload.heygen.com/v1/asset",
+        "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Api-Key",
-              "value": "={{ $env.HEYGEN_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "audio/mpeg"
-            }
-          ]
-        },
+        "headerParameters": {"parameters": [{"name": "X-Api-Key", "value": "={{ $env.HEYGEN_API_KEY }}"}, {"name": "Content-Type", "value": "audio/mpeg"}]},
         "sendBody": true,
         "contentType": "binaryData",
         "inputDataFieldName": "data",
@@ -965,23 +966,86 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
-      "position": [
-        928,
-        800
-      ],
-      "id": "1cef6e0d-5894-4aba-8de8-851c2c3adff9",
+      "position": [-1080, 570],
+      "id": "upload-audio-heygen-s3s4",
       "name": "Upload Audio to HeyGen"
     },
+
+    {
+      "parameters": {
+        "jsCode": "const audioUploadResult = $input.first().json;\nconst scriptMeta = $node['Attach Audio + Metadata'].first().json;\nconst audioAssetId = audioUploadResult?.data?.id || audioUploadResult?.id || audioUploadResult?.asset_id || '';\nif (!audioAssetId) throw new Error('HeyGen audio upload failed: ' + JSON.stringify(audioUploadResult));\nreturn [{ json: { ...scriptMeta, audio_asset_id: audioAssetId } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [-880, 570],
+      "id": "merge-audio-asset-s3s4",
+      "name": "Merge Audio Asset ID"
+    },
+
     {
       "parameters": {
         "method": "POST",
         "url": "https://api.heygen.com/v2/video/generate",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "X-Api-Key", "value": "={{ $env.HEYGEN_API_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"test\": false, \"video_inputs\": [{\"character\": {\"type\": \"avatar\", \"avatar_id\": $env.HEYGEN_AVATAR_ID, \"avatar_style\": \"normal\", \"scale\": 1.0}, \"voice\": {\"type\": \"audio\", \"audio_asset_id\": $json.audio_asset_id}, \"background\": {\"type\": \"color\", \"value\": \"#00FF00\"}}], \"dimension\": {\"width\": 1080, \"height\": 1920}, \"caption\": false} }}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [-680, 570],
+      "id": "generate-heygen-avatar-s3s4",
+      "name": "HeyGen: Generate Avatar (Green Screen)"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const heygenResponse = $input.first().json;\nconst scriptMeta = $node['Merge Audio Asset ID'].first().json;\nconst videoId = heygenResponse?.data?.video_id || heygenResponse?.video_id || '';\nif (!videoId) throw new Error('HeyGen failed: ' + JSON.stringify(heygenResponse));\nreturn [{ json: { ...scriptMeta, heygen_video_id: videoId } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [-480, 570],
+      "id": "extract-heygen-video-id-s3s4",
+      "name": "Extract HeyGen Video ID"
+    },
+
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [-280, 570],
+      "id": "wait-heygen-s3s4",
+      "name": "Wait 10 Min (HeyGen)"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Extract the ACTUAL SCENE/NARRATIVE from viral content\nconst viralContent = $input.first().json;\nconst fields = viralContent.fields || viralContent;\n\n// Extract story elements\nconst caption = fields.Caption || fields.caption || '';\nconst transcript = fields.Transcript || fields.transcript || '';\nconst content = fields.Content || fields.content || fields.Description || fields.description || '';\n\n// Combine transcript and content to get the full narrative\nconst fullNarrative = `${transcript} ${content}`;\n\n// Build VEO prompt focusing on the actual SCENE to generate (not talking head)\n// This should describe what objects, characters, actions, emotions are in the story\nconst veoPrompt = `Generate a real-world footage scene based on this story: \"${fullNarrative.substring(0, 500)}\". The scene should depict the actual narrative elements, characters, objects, emotions, and actions described. This is NOT a talking head - it's the real scene/action happening. High production value, 4K cinematic quality, realistic lighting and environment. Make it align exactly with the story being told.`;\n\nreturn [{ json: { ...viralContent, veo_prompt: veoPrompt, story_narrative: fullNarrative, viral_caption: caption, viral_transcript: transcript, viral_content: content } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [0, 700],
+      "id": "build-visual-prompt-viral-s3s4",
+      "name": "Extract Scene Narrative (for VEO)"
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.veo.co/v1/generate",
+        "authentication": "none",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
-              "name": "X-Api-Key",
-              "value": "={{ $env.HEYGEN_API_KEY }}"
+              "name": "Authorization",
+              "value": "Bearer {{ $env.VEO_API_KEY }}"
             },
             {
               "name": "Content-Type",
@@ -990,47 +1054,52 @@
           ]
         },
         "sendBody": true,
+        "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"test\": false,\n  \"video_inputs\": [\n    {\n      \"character\": {\n        \"type\": \"avatar\",\n        \"avatar_id\": $env.HEYGEN_AVATAR_ID,\n        \"avatar_style\": \"normal\",\n        \"scale\": 1.0\n      },\n      \"voice\": {\n        \"type\": \"audio\",\n        \"audio_asset_id\": $json.data.id\n      },\n      \"background\": {\n        \"type\": \"color\",\n        \"value\": \"#00FF00\"\n      }\n    }\n  ],\n  \"dimension\": {\n    \"width\": 1080,\n    \"height\": 1920\n  },\n  \"caption\": false,\n  \"caption_style\": {\n    \"style\": \"karaoke\",\n    \"font\": \"Arial Bold\",\n    \"font_size\": 60,\n    \"color\": \"#FFFFFF\",\n    \"highlight_color\": \"#00FF00\",\n    \"background_color\": \"rgba(0,0,0,0.5)\",\n    \"position\": \"bottom_center\"\n  }\n} }}",
-        "options": {}
+        "jsonBody": "={{ {\"prompt\": $json.veo_prompt || \"Generate a real scene aligned with the story narrative\", \"duration\": 10, \"quality\": \"high\", \"aspect_ratio\": \"16:9\"} }}"
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
-      "position": [
-        1200,
-        816
-      ],
-      "id": "49968394-4776-4f76-9eb5-56581ec0df39",
-      "name": "Generate HeyGen Avatar"
+      "position": [190, 700],
+      "id": "veo-generate-real-footage-s3s4",
+      "name": "VEO: Generate Real Footage"
     },
+
     {
       "parameters": {
-        "amount": 8,
+        "jsCode": "const response = $input.first().json;\nif (response.id) {\n  return [{ json: { ...response, veo_task_id: response.id, veo_status: 'generating' } }];\n}\nreturn [{ json: { error: 'No task ID returned from VEO API' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [380, 700],
+      "id": "extract-veo-task-id-s3s4",
+      "name": "Extract VEO Task ID"
+    },
+
+    {
+      "parameters": {
+        "amount": 10,
         "unit": "minutes"
       },
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1,
-      "position": [
-        1424,
-        1008
-      ],
-      "id": "35a41499-ad52-44d8-9c93-66fd70a205ac",
-      "name": "Wait (HeyGen)",
-      "webhookId": "1e2df1b8-a7d9-41df-9955-0372e967a273"
+      "position": [570, 700],
+      "id": "wait-veo-s3s4",
+      "name": "Wait 10 Min (VEO)",
+      "webhookId": "veo-wait-webhook"
     },
+
     {
       "parameters": {
-        "url": "={{ \"https://api.heygen.com/v1/video_status.get?video_id=\" + $node[\"Generate HeyGen Avatar\"].json.data.video_id }}",
+        "method": "GET",
+        "url": "={{ \"https://api.veo.co/v1/tasks/\" + $json.veo_task_id }}",
+        "authentication": "none",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
-              "name": "X-Api-Key",
-              "value": "={{ $env.HEYGEN_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
+              "name": "Authorization",
+              "value": "Bearer {{ $env.VEO_API_KEY }}"
             }
           ]
         },
@@ -1038,111 +1107,269 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
-      "position": [
-        1584,
-        1008
-      ],
-      "id": "0872b58a-bc24-4ca2-866f-04c26d083ef7",
-      "name": "Check HeyGen Status"
+      "position": [760, 700],
+      "id": "poll-veo-status-s3s4",
+      "name": "Poll VEO Status"
     },
+
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst status = response.status || 'unknown';\nconst videoUrl = response.result?.url || response.video_url || '';\n\nif (status === 'completed' && videoUrl && videoUrl !== 'null') {\n  return [{ json: { ...response, veo_status: 'completed', veo_video_url: videoUrl } }];\n}\nif (status === 'processing' || status === 'queued') {\n  return [{ json: { ...response, veo_status: 'processing', __retry: true } }];\n}\nreturn [{ json: { error: `VEO generation failed with status: ${status}`, ...response } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [950, 700],
+      "id": "classify-veo-status-s3s4",
+      "name": "Classify VEO Status"
+    },
+
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {"__rl": true, "value": "={{ $env.AIRTABLE_BASE_ID }}", "mode": "id"},
+        "table": {"__rl": true, "value": "={{ $env.AT_TABLE_VIRAL_DB }}", "mode": "id"},
+        "filterByFormula": "RECORD_ID() = '{source_content_id}'",
+        "returnAll": false,
+        "options": {}
+      },
+      "id": "fetch-viral-content-s3s4",
+      "name": "Fetch Viral Content (B-roll)",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [-80, 570],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const viralContent = $input.first().json;\nconst fields = viralContent.fields || viralContent;\nconst postUrl = fields.Post_URL || fields.post_url || '';\nif (!postUrl || !postUrl.startsWith('http')) {\n  console.warn('Viral content URL missing/invalid');\n  return [{ json: { ...viralContent, viral_b_roll_url: '' } }];\n}\nreturn [{ json: { ...viralContent, viral_b_roll_url: postUrl } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [120, 570],
+      "id": "extract-viral-broll-s3s4",
+      "name": "Extract Viral B-Roll URL"
+    },
+
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ \"https://api.heygen.com/v1/video_status.get?video_id=\" + $json.heygen_video_id }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "X-Api-Key", "value": "={{ $env.HEYGEN_API_KEY }}"}]},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [320, 570],
+      "id": "poll-heygen-status-s3s4",
+      "name": "Poll HeyGen Status"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const status = $input.first().json?.data?.status || $input.first().json?.status || '';\nconst videoUrl = $input.first().json?.data?.video_url || $input.first().json?.video_url || '';\nif (status === 'completed' && videoUrl && videoUrl !== 'null') {\n  return [{ json: { ...$input.first().json, heygen_status: 'completed', heygen_video_url: videoUrl } }];\n}\nreturn [{ json: { __skip: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [520, 570],
+      "id": "classify-heygen-s3s4",
+      "name": "Classify HeyGen Status"
+    },
+
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "check-completed",
-              "leftValue": "={{ $json.data.status }}",
-              "rightValue": "completed",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
-          ],
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict"},
+          "conditions": [{"id": "heygen-ready", "leftValue": "={{ $json.heygen_status }}", "rightValue": "completed", "operator": {"type": "string", "operation": "equals"}}],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [720, 570],
+      "id": "filter-heygen-ready-s3s4",
+      "name": "Filter: HeyGen Ready?"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Combine data from all previous steps\nconst classifyVeoNode = $node['Classify VEO Status']?.first()?.json || {};\nconst viralContentData = $input.first().json || {};\n\n// Merge all data, prioritizing viral content data\nconst mergedData = {\n  ...classifyVeoNode,\n  ...viralContentData,\n  veo_video_url: classifyVeoNode.veo_video_url|| '',\n  heygen_video_id: classifyVeoNode.heygen_video_id || '',\n  viral_b_roll_url: viralContentData.viral_b_roll_url || viralContentData.Post_URL || '',\n  veo_prompt: viralContentData.veo_prompt || classifyVeoNode.veo_prompt || '',\n  story_narrative: viralContentData.story_narrative || '',\n  viral_caption: viralContentData.viral_caption || viralContentData.Caption || '',\n  viral_transcript: viralContentData.viral_transcript || viralContentData.Transcript || '',\n  viral_content: viralContentData.viral_content || viralContentData.Content || '',\n  airtable_record_id: classifyVeoNode.airtable_record_id || classifyVeoNode.id || '',\n  source_content_id: classifyVeoNode.source_content_id || classifyVeoNode.Source_Content_ID || viralContentData.id || ''\n};\n\nreturn [{ json: mergedData }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [920, 570],
+      "id": "merge-assets-data-s3s4",
+      "name": "Merge All Assets Data"
+    },
+
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {"__rl": true, "value": "={{ $env.AIRTABLE_BASE_ID }}", "mode": "id"},
+        "table": {"__rl": true, "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}", "mode": "id"},
+        "recordId": "={{ $json.airtable_record_id }}",
+        "columns": {"mappingMode": "defineBelow", "value": {"HeyGen_Video_ID": "={{ $json.heygen_video_id }}", "Real_Footage_URL": "={{ $json.veo_video_url || '' }}", "Status": "Pending Submagic"}},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [1120, 570],
+      "id": "update-script-pending-submagic-s3s4",
+      "name": "Update Script: Pending Submagic",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.submagic.co/v1/projects",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "x-api-key", "value": "={{ $env.SUBMAGIC_API_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\"title\": $json.script_title, \"language\": \"en\", \"videoUrl\": $json.heygen_video_url, \"realFootageUrl\": ($json.veo_video_url || ''), \"brollUrl\": ($json.viral_b_roll_url || ''), \"templateName\": \"Hormozi 2\", \"magicBrolls\": true, \"magicBrollsPercentage\": 40, \"magicZooms\": true, \"captions\": true, \"captionStyle\": \"modern\"}) }}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1320, 570],
+      "id": "submit-submagic-s3s4",
+      "name": "Submit to Submagic"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const submagicResponse = $input.first().json;\nconst projectId = submagicResponse?.id || submagicResponse?.project_id || submagicResponse?.data?.id || '';\nif (!projectId) throw new Error('Submagic failed: ' + JSON.stringify(submagicResponse));\nreturn [{ json: { ...submagicResponse, submagic_project_id: projectId, submagic_status: 'processing' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1520, 570],
+      "id": "extract-submagic-id-s3s4",
+      "name": "Extract Submagic Project ID"
+    },
+
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1720, 570],
+      "id": "wait-submagic-s3s4",
+      "name": "Wait 5 Min (Submagic)"
+    },
+
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ \"https://api.submagic.co/v1/projects/\" + $json.submagic_project_id }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "x-api-key", "value": "={{ $env.SUBMAGIC_API_KEY }}"}]},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1720, 1900],
+      "id": "poll-submagic-status-s3s4",
+      "name": "Poll Submagic Status"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const status = ($input.first().json?.status || $input.first().json?.data?.status || '').toLowerCase();\nconst videoUrl = $input.first().json?.video_url || $input.first().json?.output_url || $input.first().json?.data?.video_url || $input.first().json?.downloadUrl || '';\nconst isComplete = (status === 'completed' || status === 'done' || status === 'finished') && videoUrl.length > 0;\nreturn [{ json: { ...$node['Extract Submagic Project ID'].first().json, submagic_current_status: status, submagic_video_url: videoUrl, is_complete: isComplete } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1920, 2050],
+      "id": "evaluate-submagic-status-s3s4",
+      "name": "Evaluate Submagic Status"
+    },
+
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": false, "leftValue": "", "typeValidation": "strict"},
+          "conditions": [{"id": "submagic-complete", "leftValue": "={{ $json.is_complete }}", "rightValue": true, "operator": {"type": "boolean", "operation": "true", "singleValue": true}}],
           "combinator": "and"
         },
         "options": {}
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        1728,
-        1008
-      ],
-      "id": "44a4d52b-260a-4b4e-92ca-9cc2f21579a7",
-      "name": "Is HeyGen Ready?"
+      "position": [2120, 2200],
+      "id": "check-submagic-complete-s3s4",
+      "name": "Is Submagic Complete?"
     },
+
     {
       "parameters": {
-        "jsCode": "const heygenNode = $('Check HeyGen Status').first().json;\n\nlet avatarUrl = heygenNode.data?.video_url;\nif (Array.isArray(avatarUrl)) {\n  avatarUrl = avatarUrl[0];\n}\n\navatarUrl = avatarUrl || heygenNode.video_url || heygenNode.url || '';\n\nif (avatarUrl && avatarUrl !== 'null') {\n  console.log('--- HEYGEN PLAYABLE URL ---');\n  console.log(avatarUrl);\n  return [{ json: { heygen_playable_url: avatarUrl, ...heygenNode } }];\n}\nreturn [{ json: { error: \"HeyGen Avatar URL not found\", ...heygenNode } }];"
+        "operation": "update",
+        "base": {"__rl": true, "value": "={{ $env.AIRTABLE_BASE_ID }}", "mode": "id"},
+        "table": {"__rl": true, "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}", "mode": "id"},
+        "recordId": "={{ $json.airtable_record_id }}",
+        "columns": {"mappingMode": "defineBelow", "value": {"Status": "Rendered", "Final_Video_URL": "={{ $json.submagic_video_url }}"}},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [2320, 2350],
+      "id": "update-script-rendered-s3s4",
+      "name": "Update Script: Rendered",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "console.error('Submagic FAILED for project:', $json.submagic_project_id, 'Status:', $json.submagic_current_status);\nreturn [{ json: { error: 'Submagic rendering failed', ...$json } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [
-        1904,
-        1008
-      ],
-      "id": "24925c4d-cce4-4827-9c29-2b4b7c7d34fa",
-      "name": "Construct HeyGen Playable URL"
+      "position": [2320, 2440],
+      "id": "handle-submagic-failure-s3s4",
+      "name": "Handle Submagic Failure"
     },
+
     {
       "parameters": {
-        "operation": "create",
-        "base": {
-          "__rl": true,
-          "value": "={{ $env.AIRTABLE_BASE_ID }}",
-          "mode": "id"
-        },
-        "table": {
-          "__rl": true,
-          "value": "Video RENDERS",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "Status": "Ready to Render",
-            "HeyGen_URL": "={{ $node['Construct HeyGen Playable URL']?.isExecuted ? $node['Construct HeyGen Playable URL'].json.heygen_playable_url : '' }}",
-            "Visual_Prompt": "={{ $node['Prepare Full Script']?.isExecuted ? $node['Prepare Full Script'].json.visual_prompt : '' }}",
-            "Script_Link": "={{ $node['Prepare Full Script']?.isExecuted ? $node['Prepare Full Script'].json.record_id : '' }}"
-          }
-        },
+        "operation": "update",
+        "base": {"__rl": true, "value": "={{ $env.AIRTABLE_BASE_ID }}", "mode": "id"},
+        "table": {"__rl": true, "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}", "mode": "id"},
+        "recordId": "={{ $json.airtable_record_id }}",
+        "columns": {"mappingMode": "defineBelow", "value": {"Status": "Failed", "Feedback": "={{ 'Submagic render failed. Status: ' + ($json.submagic_current_status || 'unknown') }}"}},
         "options": {}
       },
-      "id": "ad0de30b-9ee0-45fa-8e7c-7e80bc5daedd",
-      "name": "Log to Video RENDERS",
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2.1,
-      "position": [
-        2208,
-        1120
-      ]
-    },
-    {
-      "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "heygen_playable_url",
-              "value": "PASTE_YOUR_VIDEO_URL_HERE"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "e1833968-0937-4fcf-9180-ca5c1e00af74",
-      "name": "Manual URL Input",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 2,
-      "position": [
-        1872,
-        720
-      ]
+      "position": [2480, 2440],
+      "id": "mark-script-failed-s3s4",
+      "name": "Mark Script: Failed",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -1503,133 +1730,107 @@
         ]
       ]
     },
-    "Trigger Approved Script": {
-      "main": [
-        [
-          {
-            "node": "Get Approved Scripts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Manual Trigger (Stage 3)": {
+      "main": [[{"node": "Get Approved Scripts", "type": "main", "index": 0}]]
     },
     "Get Approved Scripts": {
-      "main": [
-        [
-          {
-            "node": "Filter: Status = Approved",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{"node": "Filter: Has Scripts?", "type": "main", "index": 0}]]
     },
-    "Filter: Status = Approved": {
-      "main": [
-        [
-          {
-            "node": "Prepare Full Script",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Filter: Has Scripts?": {
+      "main": [[{"node": "Prepare Full Script", "type": "main", "index": 0}]]
     },
     "Prepare Full Script": {
-      "main": [
-        [
-          {
-            "node": "Generate Voice (ElevenLabs)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{"node": "Prepare ElevenLabs Request", "type": "main", "index": 0}]]
+    },
+    "Prepare ElevenLabs Request": {
+      "main": [[{"node": "Generate Voice (ElevenLabs)", "type": "main", "index": 0}]]
     },
     "Generate Voice (ElevenLabs)": {
-      "main": [
-        [
-          {
-            "node": "Upload Audio to HeyGen",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{"node": "Attach Audio + Metadata", "type": "main", "index": 0}]]
+    },
+    "Attach Audio + Metadata": {
+      "main": [[{"node": "Upload Audio to HeyGen", "type": "main", "index": 0}]]
     },
     "Upload Audio to HeyGen": {
-      "main": [
-        [
-          {
-            "node": "Generate HeyGen Avatar",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{"node": "Merge Audio Asset ID", "type": "main", "index": 0}]]
     },
-    "Generate HeyGen Avatar": {
-      "main": [
-        [
-          {
-            "node": "Wait (HeyGen)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Merge Audio Asset ID": {
+      "main": [[{"node": "HeyGen: Generate Avatar (Green Screen)", "type": "main", "index": 0}]]
     },
-    "Wait (HeyGen)": {
-      "main": [
-        [
-          {
-            "node": "Check HeyGen Status",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "HeyGen: Generate Avatar (Green Screen)": {
+      "main": [[{"node": "Extract HeyGen Video ID", "type": "main", "index": 0}]]
     },
-    "Check HeyGen Status": {
-      "main": [
-        [
-          {
-            "node": "Is HeyGen Ready?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Extract HeyGen Video ID": {
+      "main": [[{"node": "Wait 10 Min (HeyGen)", "type": "main", "index": 0}]]
     },
-    "Is HeyGen Ready?": {
-      "main": [
-        [
-          {
-            "node": "Construct HeyGen Playable URL",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Wait (HeyGen)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Wait 10 Min (HeyGen)": {
+      "main": [[{"node": "Poll HeyGen Status", "type": "main", "index": 0}]]
     },
-    "Construct HeyGen Playable URL": {
-      "main": [
-        [
-          {
-            "node": "Log to Video RENDERS",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Poll HeyGen Status": {
+      "main": [[{"node": "Classify HeyGen Status", "type": "main", "index": 0}]]
+    },
+    "Classify HeyGen Status": {
+      "main": [[{"node": "Filter: HeyGen Ready?", "type": "main", "index": 0}]]
+    },
+    "Filter: HeyGen Ready?": {
+      "main": [[{"node": "Fetch Viral Content (B-roll)", "type": "main", "index": 0}]]
+    },
+    "Fetch Viral Content (B-roll)": {
+      "main": [[{"node": "Extract Viral B-Roll URL", "type": "main", "index": 0}]]
+    },
+    "Extract Viral B-Roll URL": {
+      "main": [[{"node": "Extract Scene Narrative (for VEO)", "type": "main", "index": 0}]]
+    },
+    "Extract Scene Narrative (for VEO)": {
+      "main": [[{"node": "VEO: Generate Real Footage", "type": "main", "index": 0}]]
+    },
+    "VEO: Generate Real Footage": {
+      "main": [[{"node": "Extract VEO Task ID", "type": "main", "index": 0}]]
+    },
+    "Extract VEO Task ID": {
+      "main": [[{"node": "Wait 10 Min (VEO)", "type": "main", "index": 0}]]
+    },
+    "Wait 10 Min (VEO)": {
+      "main": [[{"node": "Poll VEO Status", "type": "main", "index": 0}]]
+    },
+    "Poll VEO Status": {
+      "main": [[{"node": "Classify VEO Status", "type": "main", "index": 0}]]
+    },
+    "Classify VEO Status": {
+      "main": [[{"node": "Merge All Assets Data", "type": "main", "index": 0}]]
+    },
+    "Merge All Assets Data": {
+      "main": [[{"node": "Update Script: Pending Submagic", "type": "main", "index": 0}]]
+    },
+    "Update Script: Pending Submagic": {
+      "main": [[{"node": "Submit to Submagic", "type": "main", "index": 0}]]
+    },
+    "Submit to Submagic": {
+      "main": [[{"node": "Extract Submagic Project ID", "type": "main", "index": 0}]]
+    },
+    "Extract Submagic Project ID": {
+      "main": [[{"node": "Wait 5 Min (Submagic)", "type": "main", "index": 0}]]
+    },
+    "Wait 5 Min (Submagic)": {
+      "main": [[{"node": "Poll Submagic Status", "type": "main", "index": 0}]]
+    },
+    "Poll Submagic Status": {
+      "main": [[{"node": "Evaluate Submagic Status", "type": "main", "index": 0}]]
+    },
+    "Evaluate Submagic Status": {
+      "main": [[{"node": "Is Submagic Complete?", "type": "main", "index": 0}]]
+    },
+    "Is Submagic Complete?": {
+      "main": [[{"node": "Update Script: Rendered", "type": "main", "index": 0}], [{"node": "Handle Submagic Failure", "type": "main", "index": 0}]]
+    },
+    "Update Script: Rendered": {
+      "main": [[]]
+    },
+    "Handle Submagic Failure": {
+      "main": [[{"node": "Mark Script: Failed", "type": "main", "index": 0}]]
+    },
+    "Mark Script: Failed": {
+      "main": [[]]
     }
   },
   "active": false,
