@@ -1,0 +1,587 @@
+{
+  "name": "Stage 4 - Video Editing + B-Roll Overlay (Submagic)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## \ud83c\udfac STAGE 4: VIDEO EDITING + B-ROLL OVERLAY (SUBMAGIC)\n\n**Full Assembly Pipeline:**\n1. 3 Manual URL inputs \u2192 HeyGen Avatar + Veo Scene1 + Veo Scene2\n2. Build FFmpeg command:\n   - Download all 3 videos\n   - Scale Veo B-rolls to 1080x1920 (match HeyGen)\n   - Overlay Scene1 on HeyGen timeline: 0s \u2192 scene1_duration\n   - Overlay Scene2 on HeyGen timeline: scene1_duration \u2192 end\n   - HeyGen AUDIO always kept (voiceover never touched)\n   - Output: single composite .mp4\n3. Upload composite to tmpfiles.org (public URL)\n4. Send composite URL \u2192 Submagic (captions + b-roll enhancement)\n5. Poll Submagic until complete\n6. Store final URL \u2192 Update Airtable Video RENDERS\n\n**Why FFmpeg first?**\nSubmagic API accepts ONE input video. We pre-composite HeyGen + B-rolls\nvia FFmpeg so Submagic gets a single video ready for captions.",
+        "height": 400,
+        "width": 2800,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        -350
+      ],
+      "typeVersion": 1,
+      "id": "sticky-stage4-overview",
+      "name": "STAGE 4 Overview"
+    },
+    {
+      "parameters": {
+        "content": "## STEP 1: 3 URL INPUTS\nHeyGen URL + Scene 1 URL + Scene 2 URL + timing",
+        "height": 180,
+        "width": 600,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "sticky-step1",
+      "name": "Step 1"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "heygen_url",
+              "value": "PASTE_HEYGEN_VIDEO_URL_HERE"
+            },
+            {
+              "name": "scene1_url",
+              "value": "PASTE_VEO_SCENE1_URL_HERE"
+            },
+            {
+              "name": "scene2_url",
+              "value": "PASTE_VEO_SCENE2_URL_HERE"
+            }
+          ],
+          "number": [
+            {
+              "name": "scene1_duration",
+              "value": 5
+            },
+            {
+              "name": "scene2_duration",
+              "value": 8
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "manual-url-inputs",
+      "name": "Manual URL Inputs (3 Videos + Timing)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        200,
+        200
+      ],
+      "notes": "FILL IN BEFORE RUNNING:\n- heygen_url: Full HeyGen avatar video URL\n- scene1_url: Veo B-roll Scene 1 URL (hook segment)\n- scene2_url: Veo B-roll Scene 2 URL (main+CTA segment)\n- scene1_duration: seconds Scene 1 plays (e.g. 5)\n- scene2_duration: seconds Scene 2 plays (e.g. 8)\n\nAlternative: Wire this node's inputs from Veo_Broll Airtable trigger for fully automated flow"
+    },
+    {
+      "parameters": {
+        "jsCode": "// STEP 1B: Validate all 3 URLs are present and timing is set\nconst d = $input.item.json;\n\nconst errors = [];\nif (!d.heygen_url || d.heygen_url === 'PASTE_HEYGEN_VIDEO_URL_HERE') {\n  errors.push('heygen_url is missing or not set');\n}\nif (!d.scene1_url || d.scene1_url === 'PASTE_VEO_SCENE1_URL_HERE') {\n  errors.push('scene1_url is missing or not set');\n}\nif (!d.scene2_url || d.scene2_url === 'PASTE_VEO_SCENE2_URL_HERE') {\n  errors.push('scene2_url is missing or not set');\n}\n\nif (errors.length > 0) {\n  throw new Error('URL Validation Failed:\\n' + errors.join('\\n'));\n}\n\n// Sanitize and calculate timing\nconst scene1Dur = Number(d.scene1_duration) || 5;\nconst scene2Dur = Number(d.scene2_duration) || 8;\nconst totalDur  = scene1Dur + scene2Dur;\n\n// scene2 starts right after scene1\nconst scene2Start = scene1Dur;\nconst scene2End   = totalDur;\n\nreturn [{ json: {\n  heygen_url:    d.heygen_url.trim(),\n  scene1_url:    d.scene1_url.trim(),\n  scene2_url:    d.scene2_url.trim(),\n  scene1_dur:    scene1Dur,\n  scene2_dur:    scene2Dur,\n  scene2_start:  scene2Start,\n  scene2_end:    scene2End,\n  total_dur:     totalDur,\n  run_id:        Date.now()\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        440,
+        200
+      ],
+      "id": "validate-urls",
+      "name": "Validate URLs + Calculate Timing"
+    },
+    {
+      "parameters": {
+        "content": "## STEP 2: BUILD FFMPEG COMPOSITE\nDownload 3 videos \u2192 overlay B-rolls on HeyGen timeline \u2192 upload composite",
+        "height": 180,
+        "width": 600,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        700,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "sticky-step2",
+      "name": "Step 2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// STEP 2A: Build the complete FFmpeg B-roll overlay command\n// Strategy:\n//   - HeyGen = base layer (full video, audio KEPT)\n//   - Scene1  = top layer, overlaid from t=0 to t=scene1_dur\n//   - Scene2  = top layer, overlaid from t=scene2_start to t=scene2_end\n//   - Both B-rolls scaled to 1080x1920 to match HeyGen portrait format\n//   - B-roll audio is stripped (we keep HeyGen voiceover only)\n//   - Final composite uploaded to tmpfiles.org\n\nconst d = $input.item.json;\nconst rid = d.run_id || Date.now();\n\n// Temp file paths\nconst heygenFile = `/tmp/heygen_${rid}.mp4`;\nconst scene1File = `/tmp/scene1_${rid}.mp4`;\nconst scene2File = `/tmp/scene2_${rid}.mp4`;\nconst scene1Scaled = `/tmp/scene1_scaled_${rid}.mp4`;\nconst scene2Scaled = `/tmp/scene2_scaled_${rid}.mp4`;\nconst outputFile = `/tmp/composite_${rid}.mp4`;\nconst uploaderFile = `/tmp/uploader_${rid}.js`;\n\n// ffmpeg binary path (n8n container)\nconst ffmpeg = '/home/node/scripts/node_modules/ffmpeg-static/ffmpeg';\n\n// Timing values\nconst s1Dur   = d.scene1_dur;    // e.g. 5\nconst s2Start = d.scene2_start;  // e.g. 5\nconst s2End   = d.scene2_end;    // e.g. 13\n\n// ---- Node.js uploader script (base64 encoded inline) ----\nconst uploaderScript = `\nconst https = require('https');\nconst fs = require('fs');\nconst path = require('path');\nconst filePath = process.argv[2];\nif (!filePath) { console.error('No file path'); process.exit(1); }\nconst filename = path.basename(filePath);\nconst boundary = '----n8nBound' + Date.now();\nconst options = {\n  method: 'POST',\n  hostname: 'tmpfiles.org',\n  path: '/api/v1/upload',\n  headers: { 'Content-Type': 'multipart/form-data; boundary=' + boundary }\n};\nconst req = https.request(options, (res) => {\n  let body = '';\n  res.on('data', d => body += d);\n  res.on('end', () => {\n    try {\n      const json = JSON.parse(body);\n      if (json.status === 'success' && json.data && json.data.url) {\n        const directUrl = json.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');\n        process.stdout.write(directUrl);\n        process.exit(0);\n      } else {\n        process.stderr.write('Upload failed: ' + body);\n        process.exit(1);\n      }\n    } catch(e) {\n      process.stderr.write('Parse error: ' + body);\n      process.exit(1);\n    }\n  });\n});\nreq.on('error', e => { process.stderr.write(e.message); process.exit(1); });\nreq.write('--' + boundary + '\\\\r\\\\n');\nreq.write('Content-Disposition: form-data; name=\"file\"; filename=\"' + filename + '\"\\\\r\\\\n');\nreq.write('Content-Type: video/mp4\\\\r\\\\n\\\\r\\\\n');\nfs.createReadStream(filePath).on('end', () => {\n  req.write('\\\\r\\\\n--' + boundary + '--\\\\r\\\\n');\n  req.end();\n}).pipe(req, { end: false });\n`.trim();\n\nconst b64Script = Buffer.from(uploaderScript).toString('base64');\n\n// ---- Build shell command sequence ----\n\n// 1. Write uploader script\nconst writeUploader = `echo '${b64Script}' | base64 -d > \"${uploaderFile}\"`;\n\n// 2. Download all 3 videos in parallel\nconst downloadAll = [\n  `wget -q -O \"${heygenFile}\" \"${d.heygen_url}\"`,\n  `wget -q -O \"${scene1File}\" \"${d.scene1_url}\"`,\n  `wget -q -O \"${scene2File}\" \"${d.scene2_url}\"`\n].join(' & ') + ' & wait';\n\n// 3. Scale B-rolls to exactly 1080x1920 (same as HeyGen portrait output)\n// Use pad to avoid distortion if aspect ratio differs\nconst scaleScene1 = `${ffmpeg} -i \"${scene1File}\" \\\n  -vf \"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920\" \\\n  -an -c:v libx264 -crf 23 -preset ultrafast -y \"${scene1Scaled}\"`;\n\nconst scaleScene2 = `${ffmpeg} -i \"${scene2File}\" \\\n  -vf \"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920\" \\\n  -an -c:v libx264 -crf 23 -preset ultrafast -y \"${scene2Scaled}\"`;\n\n// 4. FFmpeg B-roll overlay composite\n// Filter graph:\n//   [0:v] = HeyGen base video\n//   [1:v] = Scene1 B-roll (scaled, no audio)\n//   [2:v] = Scene2 B-roll (scaled, no audio)\n//   overlay Scene1 on base from t=0 to t=s1Dur\n//   overlay Scene2 on result from t=s2Start to t=s2End\n//   keep HeyGen audio [0:a] throughout\nconst ffmpegComposite = `${ffmpeg} \\\n  -i \"${heygenFile}\" \\\n  -stream_loop -1 -i \"${scene1Scaled}\" \\\n  -stream_loop -1 -i \"${scene2Scaled}\" \\\n  -filter_complex \"\\\n    [1:v]setpts=PTS-STARTPTS[s1]; \\\n    [2:v]setpts=PTS-STARTPTS[s2]; \\\n    [0:v][s1]overlay=0:0:enable='between(t,0,${s1Dur})'[v1]; \\\n    [v1][s2]overlay=0:0:enable='between(t,${s2Start},${s2End})'[vout]\" \\\n  -map \"[vout]\" \\\n  -map 0:a \\\n  -c:v libx264 -crf 22 -preset ultrafast \\\n  -c:a aac -b:a 192k \\\n  -shortest \\\n  -y \"${outputFile}\"`;\n\n// 5. Upload composite to tmpfiles.org\nconst uploadCmd = `node \"${uploaderFile}\" \"${outputFile}\"`;\n\n// 6. Cleanup all temp files\nconst cleanup = `rm -f \"${heygenFile}\" \"${scene1File}\" \"${scene2File}\" \"${scene1Scaled}\" \"${scene2Scaled}\" \"${outputFile}\" \"${uploaderFile}\"`;\n\n// Full pipeline\nconst fullCommand = [\n  writeUploader,\n  downloadAll,\n  scaleScene1,\n  scaleScene2,\n  ffmpegComposite,\n  uploadCmd\n].join(' && ') + ` ; RET=$? ; ${cleanup} ; exit $RET`;\n\nreturn [{ json: {\n  ...d,\n  ffmpeg_command: fullCommand,\n  output_file: outputFile,\n  heygen_file: heygenFile,\n  scene1_scaled: scene1Scaled,\n  scene2_scaled: scene2Scaled\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        800,
+        200
+      ],
+      "id": "build-ffmpeg-command",
+      "name": "Build FFmpeg B-Roll Overlay Command"
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.ffmpeg_command }}"
+      },
+      "id": "run-ffmpeg-composite",
+      "name": "FFmpeg: Composite HeyGen + 2 B-Rolls",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        200
+      ],
+      "notes": "Downloads HeyGen + 2 Veo B-rolls, overlays them at correct timestamps, uploads composite to tmpfiles.org. stdout = public URL."
+    },
+    {
+      "parameters": {
+        "jsCode": "// STEP 2C: Extract the composite public URL from FFmpeg node stdout\nconst execResult = $input.item.json;\nconst prevData = $('Validate URLs + Calculate Timing').item.json;\n\nconst stdout = (execResult.stdout || '').trim();\nconst stderr = (execResult.stderr || '').trim();\n\nif (!stdout || !stdout.startsWith('http')) {\n  throw new Error(\n    'FFmpeg composite upload failed.\\n' +\n    'stdout: ' + stdout + '\\n' +\n    'stderr: ' + stderr.substring(0, 500)\n  );\n}\n\nconsole.log('Composite video URL:', stdout);\n\nreturn [{ json: {\n  ...prevData,\n  composite_url: stdout,\n  composite_ready: true,\n  ffmpeg_stderr_preview: stderr.substring(0, 300)\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        200
+      ],
+      "id": "extract-composite-url",
+      "name": "Extract Composite URL"
+    },
+    {
+      "parameters": {
+        "content": "## STEP 3: SUBMAGIC CAPTIONING\nSend composite video to Submagic for captions + B-roll enhancement",
+        "height": 180,
+        "width": 600,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1450,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "sticky-step3",
+      "name": "Step 3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.submagic.co/v1/projects",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.SUBMAGIC_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  \"title\": \"BRoll Composite - \" + $json.run_id,\n  \"language\": \"en\",\n  \"videoUrl\": $json.composite_url,\n  \"templateName\": \"Hormozi 2\",\n  \"magicBrolls\": false,\n  \"magicZooms\": true,\n  \"magicBrollsPercentage\": 0,\n  \"captions\": {\n    \"style\": \"karaoke\",\n    \"font\": \"Arial Bold\",\n    \"fontSize\": 60,\n    \"color\": \"#FFFFFF\",\n    \"highlightColor\": \"#00FF00\",\n    \"backgroundColor\": \"rgba(0,0,0,0.5)\",\n    \"position\": \"bottom_center\"\n  }\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1560,
+        200
+      ],
+      "id": "submagic-submit",
+      "name": "Submagic: Submit Composite Video",
+      "notes": "magicBrolls=false because we already added our Veo B-rolls via FFmpeg. magicZooms=true for dynamic zoom effects on captions."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Store Submagic project ID + carry all data forward\nconst submagicResponse = $input.item.json;\nconst prevData = $('Extract Composite URL').item.json;\n\nconst projectId = submagicResponse.id || submagicResponse.project_id || submagicResponse.projectId;\n\nif (!projectId) {\n  throw new Error(\n    'Submagic did not return a project ID.\\nResponse: ' + JSON.stringify(submagicResponse).substring(0, 400)\n  );\n}\n\nconsole.log('Submagic Project ID:', projectId);\n\nreturn [{ json: {\n  ...prevData,\n  submagic_project_id: projectId,\n  submagic_submitted_at: new Date().toISOString()\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1800,
+        200
+      ],
+      "id": "store-submagic-id",
+      "name": "Store Submagic Project ID"
+    },
+    {
+      "parameters": {
+        "content": "## STEP 4: POLL SUBMAGIC\nWait \u2192 poll \u2192 loop until video_url returned",
+        "height": 180,
+        "width": 500,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2000,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "sticky-step4",
+      "name": "Step 4"
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        200
+      ],
+      "id": "wait-submagic-initial",
+      "name": "Wait 5 min (Submagic processes)",
+      "notes": "Submagic typically takes 3-8 minutes depending on video length"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.submagic.co/v1/projects/{{ $json.submagic_project_id }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.SUBMAGIC_API_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        2200,
+        200
+      ],
+      "id": "poll-submagic",
+      "name": "Poll Submagic Status"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if Submagic is done\nconst pollResult = $input.item.json;\nconst prevData = $('Store Submagic Project ID').item.json;\n\nconst status   = (pollResult.status || '').toLowerCase();\nconst videoUrl = pollResult.video_url || pollResult.videoUrl || '';\n\nconst isDone = status === 'completed' || status === 'done' || videoUrl !== '';\n\nreturn [{ json: {\n  ...prevData,\n  submagic_status: status,\n  submagic_video_url: videoUrl,\n  submagic_done: isDone,\n  poll_response: pollResult\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        200
+      ],
+      "id": "check-submagic-done",
+      "name": "Check Submagic Done?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "submagic-complete",
+              "leftValue": "={{ $json.submagic_done }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2600,
+        200
+      ],
+      "id": "is-submagic-complete",
+      "name": "Is Submagic Complete?"
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        2600,
+        380
+      ],
+      "id": "wait-submagic-retry",
+      "name": "Wait 2 min (retry)",
+      "notes": "Loop back to poll again every 2 minutes"
+    },
+    {
+      "parameters": {
+        "content": "## STEP 5: STORE FINAL VIDEO\nUpdate Airtable Video RENDERS with final URL",
+        "height": 180,
+        "width": 500,
+        "color": 1
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2800,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "sticky-step5",
+      "name": "Step 5"
+    },
+    {
+      "parameters": {
+        "jsCode": "// STEP 5A: Build final output summary\nconst d = $input.item.json;\n\nconst finalUrl = d.submagic_video_url;\nif (!finalUrl) {\n  throw new Error('Submagic completed but no video_url found. Response: ' + JSON.stringify(d.poll_response).substring(0, 400));\n}\n\nconsole.log('=== FINAL VIDEO READY ===');\nconsole.log('Final URL:', finalUrl);\nconsole.log('Composite (pre-caption):', d.composite_url);\nconsole.log('Scene1 Duration:', d.scene1_dur + 's');\nconsole.log('Scene2 Duration:', d.scene2_dur + 's');\nconsole.log('Total Duration:', d.total_dur + 's');\n\nreturn [{ json: {\n  ...d,\n  final_video_url: finalUrl,\n  composite_video_url: d.composite_url,\n  completed_at: new Date().toISOString(),\n  // Clean summary for Airtable\n  summary: {\n    final_url: finalUrl,\n    heygen_url: d.heygen_url,\n    scene1_url: d.scene1_url,\n    scene1_duration: d.scene1_dur,\n    scene2_url: d.scene2_url,\n    scene2_duration: d.scene2_dur,\n    total_duration: d.total_dur\n  }\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2900,
+        200
+      ],
+      "id": "build-final-output",
+      "name": "Build Final Output Summary"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Video RENDERS",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ 'Render - ' + $json.run_id }}",
+            "Final_Video_URL": "={{ $json.final_video_url }}",
+            "Composite_URL": "={{ $json.composite_video_url }}",
+            "HeyGen_URL": "={{ $json.heygen_url }}",
+            "Scene1_URL": "={{ $json.scene1_url }}",
+            "Scene1_Duration": "={{ $json.scene1_dur }}",
+            "Scene2_URL": "={{ $json.scene2_url }}",
+            "Scene2_Duration": "={{ $json.scene2_dur }}",
+            "Total_Duration": "={{ $json.total_dur }}",
+            "Submagic_Project_ID": "={{ $json.submagic_project_id }}",
+            "Render_Status": "Ready to Publish",
+            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}"
+          }
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        3140,
+        200
+      ],
+      "id": "store-video-renders",
+      "name": "Store in Video RENDERS Table"
+    },
+    {
+      "parameters": {
+        "content": "## \u2705 FINAL OUTPUT SCHEMA\n\n**Video RENDERS Airtable Table:**\n```\nFinal_Video_URL   \u2192 Submagic captioned final video (PUBLIC URL)\nComposite_URL     \u2192 FFmpeg composite pre-caption (tmpfiles.org)\nHeyGen_URL        \u2192 Original avatar video input\nScene1_URL        \u2192 Veo B-roll Scene 1 input\nScene1_Duration   \u2192 seconds (e.g. 5)\nScene2_URL        \u2192 Veo B-roll Scene 2 input  \nScene2_Duration   \u2192 seconds (e.g. 8)\nTotal_Duration    \u2192 combined seconds\nSubmagic_ID       \u2192 for reference/re-download\nRender_Status     \u2192 'Ready to Publish'\n```\n\n**BROLL OVERLAY TIMELINE:**\n```\n[0s -------- scene1_dur] \u2192 Veo Scene1 overlaid on HeyGen\n[scene1_dur ------- end] \u2192 Veo Scene2 overlaid on HeyGen\n[0s -------------- end] \u2192 HeyGen AUDIO (voiceover always kept)\n[0s -------------- end] \u2192 Submagic captions burned on top\n```",
+        "height": 380,
+        "width": 680,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        3200,
+        420
+      ],
+      "typeVersion": 1,
+      "id": "sticky-output-schema",
+      "name": "Output Schema"
+    },
+    {
+      "parameters": {
+        "content": "## \u2699\ufe0f ENVIRONMENT VARIABLES NEEDED\n```\nSUBMAGIC_API_KEY   \u2192 from Submagic dashboard\nAIRTABLE_BASE_ID   \u2192 your base ID\n```\n\n## \ud83d\udccb VIDEO RENDERS TABLE FIELDS (create these)\n```\nName\nFinal_Video_URL     (URL field)\nComposite_URL       (URL field)\nHeyGen_URL          (URL field)\nScene1_URL          (URL field)\nScene1_Duration     (Number)\nScene2_URL          (URL field)\nScene2_Duration     (Number)\nTotal_Duration      (Number)\nSubmagic_Project_ID (Text)\nRender_Status       (Single select)\nCreated_Date        (Date)\n```\n\n## \ud83d\udd17 HOW TO AUTOMATE (no manual paste)\nReplace 'Manual URL Inputs' node with:\n\u2192 Airtable trigger watching Veo_Broll table\n\u2192 Filter: Status = 'Ready for Submagic'\n\u2192 Map: Scene1_URL, Scene2_URL, scene1_duration, scene2_duration\n\u2192 Also fetch HeyGen_URL from Script_Library or Video_RENDERS table",
+        "height": 480,
+        "width": 680,
+        "color": 1
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        500
+      ],
+      "typeVersion": 1,
+      "id": "sticky-setup",
+      "name": "Setup + Automation Notes"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual URL Inputs (3 Videos + Timing)": {
+      "main": [
+        [
+          {
+            "node": "Validate URLs + Calculate Timing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate URLs + Calculate Timing": {
+      "main": [
+        [
+          {
+            "node": "Build FFmpeg B-Roll Overlay Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build FFmpeg B-Roll Overlay Command": {
+      "main": [
+        [
+          {
+            "node": "FFmpeg: Composite HeyGen + 2 B-Rolls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FFmpeg: Composite HeyGen + 2 B-Rolls": {
+      "main": [
+        [
+          {
+            "node": "Extract Composite URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Composite URL": {
+      "main": [
+        [
+          {
+            "node": "Submagic: Submit Composite Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submagic: Submit Composite Video": {
+      "main": [
+        [
+          {
+            "node": "Store Submagic Project ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Submagic Project ID": {
+      "main": [
+        [
+          {
+            "node": "Wait 5 min (Submagic processes)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5 min (Submagic processes)": {
+      "main": [
+        [
+          {
+            "node": "Poll Submagic Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Submagic Status": {
+      "main": [
+        [
+          {
+            "node": "Check Submagic Done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Submagic Done?": {
+      "main": [
+        [
+          {
+            "node": "Is Submagic Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Submagic Complete?": {
+      "main": [
+        [
+          {
+            "node": "Build Final Output Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 2 min (retry)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2 min (retry)": {
+      "main": [
+        [
+          {
+            "node": "Poll Submagic Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Final Output Summary": {
+      "main": [
+        [
+          {
+            "node": "Store in Video RENDERS Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [],
+  "id": "Submagic-Edit-d3c46a0d"
+}

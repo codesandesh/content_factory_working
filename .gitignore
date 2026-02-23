@@ -19,3 +19,32 @@ Thumbs.db
 
 # Generated setup files
 credentials.json
+# n8n Workflow Management Scripts - Local Only
+setup_workflows.sh
+manage_workflows.sh
+import_workflows.sh
+import_direct.sh
+import_n8n_workflows.py
+final_setup.sh
+test_delete.sh
+update_manager.py
+update_workflows.py
+UPDATE_GUIDE.py
+export_workflows.sh
+UPDATE_GUIDE.md
+update_workflows.sh
+
+
+
+# Database Backups
+n8n_backup_*.sql
+
+# Local Documentation
+SETUP_COMPLETE.md
+WORKFLOW_SETUP_README.md
+
+# Temporary files
+*~
+*.swp
+*.swo
+*.tmp

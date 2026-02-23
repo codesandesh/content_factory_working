@@ -1,0 +1,464 @@
+{
+  "name": "Stage 3 - HeyGen Avatar Generation",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## \ud83c\udfa5 STAGE 3: ASSET GENERATION\n\n**Goal**: Generate raw AI Avatar and Background Assets",
+        "height": 450,
+        "width": 2300,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "ec0c98ef-1797-4316-8d48-4c160d04425d",
+      "name": "STAGE 3 - Video Production"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "a7e44573-7215-40fc-891f-61ff6f4f08fb",
+      "name": "Trigger Approved Script",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}",
+          "mode": "id"
+        },
+        "filterByFormula": "{Status} = 'Approved'",
+        "options": {}
+      },
+      "id": "get-approved-scripts-id",
+      "name": "Get Approved Scripts",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        400,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-approved",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "Approved",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        600,
+        200
+      ],
+      "id": "44b75e78-a4ae-437c-bb9e-6e33352e6018",
+      "name": "Filter: Status = Approved"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Stage 3 Independent Script Preparation\nconst f = $json.fields || $json;\n\nconst visualCues = f.Visual_Cues || 'Highly cinematic, futuristic AI marketing interface, professional lighting, 8k resolution, smooth motion.';\nconst hook = f.Hook || '';\nconst mainContent = f.Main_Content || '';\nconst cta = f['CTA '] || f.CTA || '';\n\nconst fullScript = [hook, mainContent, cta].filter(Boolean).join('\\n\\n');\n\nif (!fullScript) {\n  throw new Error(\"Stage 3 Failure: Script content (Hook/Main/CTA) is missing from the Airtable records provided to this stage.\");\n}\n\nreturn [{\n  json: {\n    ...$json,\n    full_script: fullScript,\n    visual_prompt: visualCues,\n    estimated_duration: parseInt(f.Estimated_Duration) || 30,\n    record_id: $json.id || f.Source_Content_ID,\n    Platform: f['Target_Platforms '] || f.Target_Platforms || 'TikTok'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        800,
+        200
+      ],
+      "id": "prepare-full-script-id",
+      "name": "Prepare Full Script"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.elevenlabs.io/v1/text-to-speech/{{ $env.ELEVENLABS_VOICE_ID }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "={{ $env.ELEVENLABS_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"text\": $node[\"Prepare Full Script\"].json.full_script,\n  \"model_id\": \"eleven_multilingual_v2\",\n  \"voice_settings\": {\n    \"stability\": 0.5,\n    \"similarity_boost\": 0.75\n  }\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1000,
+        200
+      ],
+      "id": "9be7ee71-7d6e-42b3-8f45-c47889fd4a19",
+      "name": "Generate Voice (ElevenLabs)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://upload.heygen.com/v1/asset",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $env.HEYGEN_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "audio/mpeg"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1200,
+        200
+      ],
+      "id": "upload-audio-heygen-id",
+      "name": "Upload Audio to HeyGen"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.heygen.com/v2/video/generate",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $env.HEYGEN_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"test\": false,\n  \"video_inputs\": [\n    {\n      \"character\": {\n        \"type\": \"avatar\",\n        \"avatar_id\": $env.HEYGEN_AVATAR_ID,\n        \"avatar_style\": \"normal\",\n        \"scale\": 1.0\n      },\n      \"voice\": {\n        \"type\": \"audio\",\n        \"audio_asset_id\": $json.data.id\n      },\n      \"background\": {\n        \"type\": \"color\",\n        \"value\": \"#00FF00\"\n      }\n    }\n  ],\n  \"dimension\": {\n    \"width\": 1080,\n    \"height\": 1920\n  },\n  \"caption\": false,\n  \"caption_style\": {\n    \"style\": \"karaoke\",\n    \"font\": \"Arial Bold\",\n    \"font_size\": 60,\n    \"color\": \"#FFFFFF\",\n    \"highlight_color\": \"#00FF00\",\n    \"background_color\": \"rgba(0,0,0,0.5)\",\n    \"position\": \"bottom_center\"\n  }\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1400,
+        200
+      ],
+      "id": "heygen-avatar-id",
+      "name": "Generate HeyGen Avatar"
+    },
+    {
+      "parameters": {
+        "amount": 8,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        200
+      ],
+      "id": "wait-for-heygen",
+      "name": "Wait (HeyGen)"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ \"https://api.heygen.com/v1/video_status.get?video_id=\" + $node[\"Generate HeyGen Avatar\"].json.data.video_id }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $env.HEYGEN_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1800,
+        200
+      ],
+      "id": "check-heygen-status",
+      "name": "Check HeyGen Status"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-completed",
+              "leftValue": "={{ $json.data.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2000,
+        200
+      ],
+      "id": "is-heygen-ready-id",
+      "name": "Is HeyGen Ready?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const heygenNode = $('Check HeyGen Status').first().json;\n\nlet avatarUrl = heygenNode.data?.video_url;\nif (Array.isArray(avatarUrl)) {\n  avatarUrl = avatarUrl[0];\n}\n\navatarUrl = avatarUrl || heygenNode.video_url || heygenNode.url || '';\n\nif (avatarUrl && avatarUrl !== 'null') {\n  console.log('--- HEYGEN PLAYABLE URL ---');\n  console.log(avatarUrl);\n  return [{ json: { heygen_playable_url: avatarUrl, ...heygenNode } }];\n}\nreturn [{ json: { error: \"HeyGen Avatar URL not found\", ...heygenNode } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2200,
+        100
+      ],
+      "id": "construct-heygen-playable-url",
+      "name": "Construct HeyGen Playable URL"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Video RENDERS",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Ready to Render",
+            "HeyGen_URL": "={{ $node['Construct HeyGen Playable URL']?.isExecuted ? $node['Construct HeyGen Playable URL'].json.heygen_playable_url : '' }}",
+            "Visual_Prompt": "={{ $node['Prepare Full Script']?.isExecuted ? $node['Prepare Full Script'].json.visual_prompt : '' }}",
+            "Script_Link": "={{ $node['Prepare Full Script']?.isExecuted ? $node['Prepare Full Script'].json.record_id : '' }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-to-renders-id",
+      "name": "Log to Video RENDERS",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        2400,
+        100
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Trigger Approved Script": {
+      "main": [
+        [
+          {
+            "node": "Get Approved Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Approved Scripts": {
+      "main": [
+        [
+          {
+            "node": "Filter: Status = Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter: Status = Approved": {
+      "main": [
+        [
+          {
+            "node": "Prepare Full Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Full Script": {
+      "main": [
+        [
+          {
+            "node": "Generate Voice (ElevenLabs)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Voice (ElevenLabs)": {
+      "main": [
+        [
+          {
+            "node": "Upload Audio to HeyGen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Audio to HeyGen": {
+      "main": [
+        [
+          {
+            "node": "Generate HeyGen Avatar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate HeyGen Avatar": {
+      "main": [
+        [
+          {
+            "node": "Wait (HeyGen)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait (HeyGen)": {
+      "main": [
+        [
+          {
+            "node": "Check HeyGen Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check HeyGen Status": {
+      "main": [
+        [
+          {
+            "node": "Is HeyGen Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is HeyGen Ready?": {
+      "main": [
+        [
+          {
+            "node": "Construct HeyGen Playable URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait (HeyGen)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construct HeyGen Playable URL": {
+      "main": [
+        [
+          {
+            "node": "Log to Video RENDERS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [],
+  "id": "HeyGen-Avatar-d334451b"
+}

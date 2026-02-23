@@ -1,0 +1,936 @@
+{
+  "name": "Stage 3 - VEO B-Roll Generation (FIXED)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "VEO-B-Roll-Gen-c41593e8-fixed",
+      "name": "Trigger: Every 6 Hours (S3)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        112,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_VIRAL_DB }}",
+          "mode": "id"
+        },
+        "filterByFormula": "{Status} = 'Generate Script'",
+        "returnAll": false,
+        "limit": 10,
+        "options": {}
+      },
+      "id": "fetch-viral-db-s3",
+      "name": "Fetch Viral DB (Generate B-Roll)",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        384,
+        288
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst output = [];\nfor (const item of items) {\n  const f = item.json.fields || item.json;\n  const recordId = item.json.id;\n  const NameId = f.Name;\n  const hookPattern = f.Hook_Pattern || f.Narrative_Hook || '';\n  const contentStructure = f.Content_Structure || f.Core_Story || '';\n  const emotionalTriggers = f.Emotional_Triggers || '';\n  const viralElements = f['Viral_Elements '] || f.Viral_Elements || '';\n  const scriptFramework = f.Script_Framework || '';\n  const viralScore = f.Viral_Score || 0;\n  const platform = f.Platform || 'TikTok';\n  const rawContent = f.Content || '';\n  const scriptLinks = f.Script_Library || [];\n  const linkedScriptId = Array.isArray(scriptLinks) ? scriptLinks[0] : scriptLinks;\n  const directTranscript = f.Transcript || '';\n  output.push({\n    json: {\n      viral_record_id: recordId,\n      hook_pattern: hookPattern,\n      content_structure: contentStructure,\n      emotional_triggers: emotionalTriggers,\n      viral_elements: viralElements,\n      script_framework: scriptFramework,\n      viral_score: viralScore,\n      platform: platform,\n      raw_content: rawContent,\n      linked_script_id: linkedScriptId || null,\n      Name: NameId,\n      direct_transcript: directTranscript\n    }\n  });\n}\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        608,
+        288
+      ],
+      "id": "extract-viral-fields-s3",
+      "name": "Extract Viral DB Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "has-script-link",
+              "leftValue": "={{ $json.Name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        288
+      ],
+      "id": "has-linked-script-s3",
+      "name": "Has Linked Script?"
+    },
+    {
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}",
+          "mode": "id"
+        },
+        "id": "={{ $json.linked_script_id }}",
+        "options": {}
+      },
+      "id": "fetch-linked-script-s3",
+      "name": "Fetch Linked Script",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        1040,
+        208
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const viralData = $('Has Linked Script?').item.json;\nconst scriptFields = ($input.item.json.fields || $input.item.json);\nconst hook = scriptFields.Hook || '';\nconst main = scriptFields.Main_Content || '';\nconst cta = scriptFields['CTA '] || scriptFields.CTA || '';\nconst transcript = scriptFields.Transcript || [hook, main, cta].filter(Boolean).join(' ');\nreturn [{ json: { ...viralData, hook, main_content: main, cta, transcript } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        208
+      ],
+      "id": "merge-script-linked-s3",
+      "name": "Merge: Viral + Linked Script"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.item.json;\nconst transcript = d.direct_transcript || d.raw_content || '';\nconst fallback = d.hook_pattern || 'Watch this incredible moment';\nreturn [{ json: {\n  ...d,\n  hook: d.hook_pattern || fallback,\n  main_content: d.content_structure || '',\n  cta: 'Comment below',\n  transcript: transcript || fallback\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        368
+      ],
+      "id": "fallback-no-script-s3",
+      "name": "Fallback: Use Viral Content Direct"
+    },
+    {
+      "parameters": {},
+      "id": "merge-both-paths-s3",
+      "name": "Merge Both Paths",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.item.json;\nconst wordsPerSec = 2.3;\nconst hookWords = (d.hook || '').split(/\\s+/).filter(Boolean).length;\nconst mainWords = (d.main_content || '').split(/\\s+/).filter(Boolean).length;\nconst ctaWords = (d.cta || '').split(/\\s+/).filter(Boolean).length;\nconst clamp = (val, min, max) => Math.min(max, Math.max(min, val));\nconst scene1Duration = clamp(Math.round(hookWords / wordsPerSec), 5, 8);\nconst scene2Duration = clamp(Math.round((mainWords + ctaWords) / wordsPerSec), 5, 8);\nreturn [{ json: {\n  ...d,\n  scene1_duration: scene1Duration,\n  scene2_duration: scene2Duration,\n  hook_word_count: hookWords,\n  main_word_count: mainWords + ctaWords,\n  total_duration: scene1Duration + scene2Duration\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1712,
+        288
+      ],
+      "id": "calculate-timings-s3",
+      "name": "Calculate Scene Timings"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# CINEMATIC SCENE EXTRACTOR FOR VEO B-ROLL\n\nYou are a cinematic director. Extract EXACT visual scene DNA from viral content and build two precise filmable video prompts for Google Veo 2.0.\n\n## VIRAL CONTENT DATA\n- Hook Pattern: {{ $json.hook_pattern }}\n- Core Story: {{ $json.content_structure }}\n- Emotional Triggers: {{ $json.emotional_triggers }}\n- Viral Elements: {{ $json.viral_elements }}\n- Script Hook: {{ $json.hook }}\n- Script Main: {{ $json.main_content }}\n- Script CTA: {{ $json.cta }}\n- Scene 1 Duration: {{ $json.scene1_duration }} seconds\n- Scene 2 Duration: {{ $json.scene2_duration }} seconds\n\n## RULES\n- EXTREMELY specific: character + action + emotion + setting + lighting + camera + style\n- NO text, subtitles, logos\n- Filmable, photorealistic, cinematic\n- Scene 1 = Hook energy\n- Scene 2 = Resolution energy\n- Max 80 words per prompt\n- Return ONLY raw JSON. No markdown, no backticks.\n\n## OUTPUT FORMAT\n{\"character\":\"primary subject\",\"emotion\":\"core emotion\",\"scene_setting\":\"environment\",\"visual_metaphor\":\"emotional connection\",\"scene1_prompt\":\"Veo prompt for Scene 1\",\"scene1_camera\":\"close-up\",\"scene1_mood\":\"emotional\",\"scene2_prompt\":\"Veo prompt for Scene 2\",\"scene2_camera\":\"wide shot\",\"scene2_mood\":\"triumphant\",\"style_tags\":\"cinematic, 4K, golden hour, photorealistic\"}",
+        "batching": {
+          "batchSize": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        1872,
+        272
+      ],
+      "id": "ai-scene-extractor-s3",
+      "name": "AI: Extract Scene DNA + Build Veo Prompts",
+      "settings": {
+        "errorHandling": "continueRegular"
+      },
+      "onError": "continue"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1904,
+        464
+      ],
+      "id": "gemini-scene-s3",
+      "name": "Gemini 2.0 (Scene)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst rawText = item.json.text || '';\nlet timingData = {};\ntry { timingData = $('Calculate Scene Timings').item.json || {}; } catch(e) {}\nlet parsed = {};\ntry {\n  const cleaned = rawText.replace(/```json\\s*/gi, '').replace(/```\\s*/gi, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  try {\n    const match = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (match) parsed = JSON.parse(match[0]);\n  } catch (e2) {\n    parsed = {\n      character: 'subject',\n      emotion: 'emotional',\n      scene_setting: 'cinematic environment',\n      visual_metaphor: 'visual story',\n      scene1_prompt: 'Cinematic close-up, emotional moment, 4K, slow motion, golden hour',\n      scene1_camera: 'close-up',\n      scene1_mood: 'emotional',\n      scene2_prompt: 'Wide cinematic shot, triumphant resolution, 4K, professional lighting',\n      scene2_camera: 'wide shot',\n      scene2_mood: 'triumphant',\n      style_tags: 'cinematic, 4K, photorealistic'\n    };\n  }\n}\nreturn [{ json: {\n  ...timingData,\n  ...parsed,\n  scene1_duration_final: timingData.scene1_duration || 5,\n  scene2_duration_final: timingData.scene2_duration || 8\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2128,
+        288
+      ],
+      "id": "parse-scene-ai-s3",
+      "name": "Parse Scene AI Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { access_token: $env.GOOGLE_ACCESS_TOKEN, token_type: 'Bearer' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2352,
+        208
+      ],
+      "id": "get-access-token-s3",
+      "name": "Get Google Access Token"
+    },
+    {
+      "parameters": {
+        "jsCode": "const tokenResp = $input.item.json;\nconst sceneData = $('Parse Scene AI Output').item.json;\nif (!tokenResp.access_token) {\n  throw new Error('No access_token received. Response: ' + JSON.stringify(tokenResp));\n}\nreturn [{ json: { ...sceneData, access_token: tokenResp.access_token } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2560,
+        208
+      ],
+      "id": "merge-token-s3",
+      "name": "Merge Token + Scene Data"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://us-central1-aiplatform.googleapis.com/v1/projects/{{ $env.GOOGLE_PROJECT_ID }}/locations/us-central1/publishers/google/models/veo-2.0-generate-001:predictLongRunning",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  instances: [{ prompt: $json.scene1_prompt }],\n  parameters: {\n    storageUri: 'gs://' + $env.GOOGLE_GCS_BUCKET + '/veo-broll/' + $json.viral_record_id + '/scene1/',\n    sampleCount: 1\n  }\n}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        2752,
+        208
+      ],
+      "id": "veo-scene1-generate-s3",
+      "name": "Veo: Generate Scene 1 (Hook)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const veoResponse = $input.item.json;\nconst prevData = $('Merge Token + Scene Data').item.json;\nconst operationName = veoResponse.name || veoResponse.operationName || '';\nif (!operationName) {\n  throw new Error('Veo Scene 1 no operationName. Response: ' + JSON.stringify(veoResponse));\n}\nreturn [{ json: { ...prevData, scene1_operation: operationName, scene1_submitted: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2944,
+        208
+      ],
+      "id": "store-scene1-op-s3",
+      "name": "Store Scene 1 Operation Name"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://us-central1-aiplatform.googleapis.com/v1/projects/{{ $env.GOOGLE_PROJECT_ID }}/locations/us-central1/publishers/google/models/veo-2.0-generate-001:predictLongRunning",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  instances: [{ prompt: $json.scene2_prompt }],\n  parameters: {\n    storageUri: 'gs://' + $env.GOOGLE_GCS_BUCKET + '/veo-broll/' + $json.viral_record_id + '/scene2/',\n    sampleCount: 1\n  }\n}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        3136,
+        208
+      ],
+      "id": "veo-scene2-generate-s3",
+      "name": "Veo: Generate Scene 2 (Main+CTA)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const veoResponse = $input.item.json;\nconst prevData = $('Store Scene 1 Operation Name').item.json;\nconst operationName = veoResponse.name || veoResponse.operationName || '';\nif (!operationName) {\n  throw new Error('Veo Scene 2 no operationName. Response: ' + JSON.stringify(veoResponse));\n}\nreturn [{ json: { ...prevData, scene2_operation: operationName, scene2_submitted: true, both_submitted_at: new Date().toISOString() } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        3328,
+        208
+      ],
+      "id": "store-scene2-op-s3",
+      "name": "Store Scene 2 Operation Name"
+    },
+    {
+      "parameters": {
+        "amount": 3,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        3520,
+        208
+      ],
+      "id": "wait-veo-initial-s3",
+      "name": "Wait 3 min (Veo renders)",
+      "webhookId": "b373434f-8df5-4da4-a91c-ef4a6b6d6b06"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://us-central1-aiplatform.googleapis.com/v1/projects/{{ $env.GOOGLE_PROJECT_ID }}/locations/us-central1/publishers/google/models/veo-2.0-generate-001:fetchPredictOperation",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { operationName: $json.scene1_operation } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        3712,
+        208
+      ],
+      "id": "poll-scene1-s3",
+      "name": "Poll Scene 1 Status"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://us-central1-aiplatform.googleapis.com/v1/projects/{{ $env.GOOGLE_PROJECT_ID }}/locations/us-central1/publishers/google/models/veo-2.0-generate-001:fetchPredictOperation",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Store Scene 2 Operation Name').item.json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { operationName: $('Store Scene 2 Operation Name').item.json.scene2_operation } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        3712,
+        384
+      ],
+      "id": "poll-scene2-s3",
+      "name": "Poll Scene 2 Status"
+    },
+    {
+      "parameters": {
+        "jsCode": "let scene1Status = {};\nlet scene2Status = {};\n\ntry {\n  const s1 = $('Poll Scene 1 Status');\n  if (s1 && s1.item && s1.item.json) {\n    scene1Status = s1.item.json;\n  }\n} catch (e) {\n  console.log('Scene 1 poll data unavailable');\n}\n\ntry {\n  const s2 = $('Poll Scene 2 Status');\n  if (s2 && s2.item && s2.item.json) {\n    scene2Status = s2.item.json;\n  }\n} catch (e) {\n  console.log('Scene 2 poll data unavailable');\n}\n\nconst isDone = (s) => {\n  if (!s || typeof s !== 'object') return false;\n  if (s.done === true) return true;\n  if (s.response?.videos?.[0]) return true;\n  if (s.metadata?.state === 'SUCCEEDED') return true;\n  return false;\n};\n\nconst scene1Done = isDone(scene1Status);\nconst scene2Done = isDone(scene2Status);\nconst bothDone = scene1Done && scene2Done;\n\nlet allData = {};\ntry {\n  allData = $('Store Scene 2 Operation Name').item.json || {};\n} catch (e) {\n  console.log('Store Scene 2 Operation Name data unavailable');\n}\n\nreturn [{ json: {\n  ...allData,\n  scene1_poll_response: scene1Status,\n  scene2_poll_response: scene2Status,\n  scene1_done: scene1Done,\n  scene2_done: scene2Done,\n  both_done: bothDone\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        3904,
+        304
+      ],
+      "id": "check-both-done-s3",
+      "name": "Check Both Scenes Done?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "both-complete",
+              "leftValue": "={{ $json.both_done }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4096,
+        304
+      ],
+      "id": "are-both-done-s3",
+      "name": "Are Both Scenes Done?"
+    },
+    {
+      "parameters": {
+        "amount": 90,
+        "unit": "seconds"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        3904,
+        480
+      ],
+      "id": "wait-retry-s3",
+      "name": "Wait 90s (retry poll)",
+      "webhookId": "cbce8db1-9fca-445a-97ae-644c03dcdd09"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.item.json;\nconst extractGcsUri = (pollResponse) => {\n  if (!pollResponse) return '';\n  if (pollResponse.response && pollResponse.response.videos && pollResponse.response.videos[0]) return pollResponse.response.videos[0].gcsUri || '';\n  if (pollResponse.response && pollResponse.response.predictions && pollResponse.response.predictions[0]) return pollResponse.response.predictions[0].videoGcsUri || '';\n  if (pollResponse.metadata && pollResponse.metadata.videos && pollResponse.metadata.videos[0]) return pollResponse.metadata.videos[0].gcsUri || '';\n  if (pollResponse.videos && pollResponse.videos[0]) return pollResponse.videos[0].gcsUri || '';\n  return '';\n};\nconst scene1GcsUri = extractGcsUri(d.scene1_poll_response);\nconst scene2GcsUri = extractGcsUri(d.scene2_poll_response);\nif (!scene1GcsUri || !scene2GcsUri) {\n  throw new Error('GCS URI extraction failed. Scene1: ' + scene1GcsUri + ', Scene2: ' + scene2GcsUri);\n}\nconst toHttpsUrl = (gcsUri) => gcsUri.replace('gs://', 'https://storage.googleapis.com/');\nreturn [{ json: {\n  ...d,\n  scene1_gcs_uri: scene1GcsUri,\n  scene2_gcs_uri: scene2GcsUri,\n  scene1_public_url: toHttpsUrl(scene1GcsUri),\n  scene2_public_url: toHttpsUrl(scene2GcsUri),\n  extraction_complete: true\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        4352,
+        208
+      ],
+      "id": "extract-gcs-urls-s3",
+      "name": "Extract GCS URIs -> Public URLs"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.item.json;\nreturn [{ json: {\n  ...d,\n  broll_scene1_url: d.scene1_public_url,\n  broll_scene2_url: d.scene2_public_url,\n  broll_scene1_duration: d.scene1_duration_final,\n  broll_scene2_duration: d.scene2_duration_final,\n  broll_character: d.character,\n  broll_emotion: d.emotion,\n  broll_scene1_prompt: d.scene1_prompt,\n  broll_scene2_prompt: d.scene2_prompt,\n  broll_total_duration: d.total_duration,\n  urls_ready: true\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        4544,
+        208
+      ],
+      "id": "build-signed-urls-s3",
+      "name": "Build Public URLs (GCS)"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_VEO_BROLL }}",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $json.character + ' - ' + $json.emotion + ' - ' + $now.format('yyyy-MM-dd') }}",
+            "Viral_Record_ID": "={{ $json.viral_record_id }}",
+            "Character": "={{ $json.character }}",
+            "Emotion": "={{ $json.emotion }}",
+            "Scene_Setting": "={{ $json.scene_setting }}",
+            "Visual_Metaphor": "={{ $json.visual_metaphor }}",
+            "Scene1_Prompt": "={{ $json.scene1_prompt }}",
+            "Scene1_URL": "={{ $json.broll_scene1_url }}",
+            "Scene1_Duration": "={{ $json.broll_scene1_duration }}",
+            "Scene1_GCS_URI": "={{ $json.scene1_gcs_uri }}",
+            "Scene2_Prompt": "={{ $json.scene2_prompt }}",
+            "Scene2_URL": "={{ $json.broll_scene2_url }}",
+            "Scene2_Duration": "={{ $json.broll_scene2_duration }}",
+            "Scene2_GCS_URI": "={{ $json.scene2_gcs_uri }}",
+            "Total_Duration": "={{ $json.broll_total_duration }}",
+            "Platform": "={{ $json.platform }}",
+            "Status": "Ready for Submagic",
+            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}"
+          }
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        4736,
+        208
+      ],
+      "id": "store-veo-broll-s3",
+      "name": "Store in Veo_Broll Table",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_VIRAL_DB }}",
+          "mode": "id"
+        },
+        "id": "={{ $json.viral_record_id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "B-Roll Generated",
+            "Veo_Scene1_URL": "={{ $json.broll_scene1_url }}",
+            "Veo_Scene2_URL": "={{ $json.broll_scene2_url }}"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        4928,
+        208
+      ],
+      "id": "update-viral-db-status-s3",
+      "name": "Update Viral DB: B-Roll Generated",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Trigger: Every 6 Hours (S3)": {
+      "main": [
+        [
+          {
+            "node": "Fetch Viral DB (Generate B-Roll)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Viral DB (Generate B-Roll)": {
+      "main": [
+        [
+          {
+            "node": "Extract Viral DB Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Viral DB Fields": {
+      "main": [
+        [
+          {
+            "node": "Has Linked Script?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Linked Script?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Linked Script",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback: Use Viral Content Direct",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Linked Script": {
+      "main": [
+        [
+          {
+            "node": "Merge: Viral + Linked Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge: Viral + Linked Script": {
+      "main": [
+        [
+          {
+            "node": "Merge Both Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback: Use Viral Content Direct": {
+      "main": [
+        [
+          {
+            "node": "Merge Both Paths",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Both Paths": {
+      "main": [
+        [
+          {
+            "node": "Calculate Scene Timings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Scene Timings": {
+      "main": [
+        [
+          {
+            "node": "AI: Extract Scene DNA + Build Veo Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.0 (Scene)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI: Extract Scene DNA + Build Veo Prompts",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Extract Scene DNA + Build Veo Prompts": {
+      "main": [
+        [
+          {
+            "node": "Parse Scene AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Scene AI Output": {
+      "main": [
+        [
+          {
+            "node": "Get Google Access Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Google Access Token": {
+      "main": [
+        [
+          {
+            "node": "Merge Token + Scene Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Token + Scene Data": {
+      "main": [
+        [
+          {
+            "node": "Veo: Generate Scene 1 (Hook)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Veo: Generate Scene 1 (Hook)": {
+      "main": [
+        [
+          {
+            "node": "Store Scene 1 Operation Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Scene 1 Operation Name": {
+      "main": [
+        [
+          {
+            "node": "Veo: Generate Scene 2 (Main+CTA)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Veo: Generate Scene 2 (Main+CTA)": {
+      "main": [
+        [
+          {
+            "node": "Store Scene 2 Operation Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Scene 2 Operation Name": {
+      "main": [
+        [
+          {
+            "node": "Wait 3 min (Veo renders)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 3 min (Veo renders)": {
+      "main": [
+        [
+          {
+            "node": "Poll Scene 1 Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Poll Scene 2 Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Scene 1 Status": {
+      "main": [
+        [
+          {
+            "node": "Check Both Scenes Done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Scene 2 Status": {
+      "main": [
+        [
+          {
+            "node": "Check Both Scenes Done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Both Scenes Done?": {
+      "main": [
+        [
+          {
+            "node": "Are Both Scenes Done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Are Both Scenes Done?": {
+      "main": [
+        [
+          {
+            "node": "Extract GCS URIs -> Public URLs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 90s (retry poll)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 90s (retry poll)": {
+      "main": [
+        [
+          {
+            "node": "Poll Scene 1 Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract GCS URIs -> Public URLs": {
+      "main": [
+        [
+          {
+            "node": "Build Public URLs (GCS)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Public URLs (GCS)": {
+      "main": [
+        [
+          {
+            "node": "Store in Veo_Broll Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store in Veo_Broll Table": {
+      "main": [
+        [
+          {
+            "node": "Update Viral DB: B-Roll Generated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "88bc537a-working-final-v3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dc87f94e8f44b5018e54a588eebeaae61eebdb6c256f8f2f61b7c6ba347bca63"
+  },
+  "id": "VEO-B-Roll-Gen-c41593e8-fixed",
+  "tags": []
+}
