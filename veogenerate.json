@@ -155,15 +155,17 @@
       "name": "Fallback: Use Viral Content Direct"
     },
     {
-      "parameters": {},
-      "id": "merge-both-paths-s3",
-      "name": "Merge Both Paths",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
       "position": [
         1488,
         288
-      ]
+      ],
+      "id": "merge-both-paths-s3",
+      "name": "Merge Both Paths"
     },
     {
       "parameters": {
@@ -270,7 +272,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  instances: [{ prompt: $json.scene1_prompt }],\n  parameters: {\n    storageUri: 'gs://' + $env.GOOGLE_GCS_BUCKET + '/veo-broll/' + $json.viral_record_id + '/scene1/',\n    sampleCount: 1\n  }\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  instances: [{\n    prompt: $json.scene1_prompt\n  }],\n  parameters: {\n    storageUri: 'gs://' + $env.GOOGLE_GCS_BUCKET + '/veo-broll/' + $json.viral_record_id + '/scene1/',\n    aspectRatio: \"9:16\",\n    durationSeconds: $json.scene1_duration_final,\n    sampleCount: 1\n  }\n}) }}",
         "options": {
           "timeout": 30000
         }
@@ -316,7 +318,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  instances: [{ prompt: $json.scene2_prompt }],\n  parameters: {\n    storageUri: 'gs://' + $env.GOOGLE_GCS_BUCKET + '/veo-broll/' + $json.viral_record_id + '/scene2/',\n    sampleCount: 1\n  }\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  instances: [{\n    prompt: $json.scene2_prompt\n  }],\n  parameters: {\n    storageUri: 'gs://' + $env.GOOGLE_GCS_BUCKET + '/veo-broll/' + $json.viral_record_id + '/scene2/',\n    aspectRatio: \"9:16\",\n    durationSeconds: $json.scene2_duration_final,\n    sampleCount: 1\n  }\n}) }}",
         "options": {
           "timeout": 30000
         }

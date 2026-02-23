@@ -322,6 +322,76 @@
         2400,
         100
       ]
+    },
+    {
+      "parameters": {
+        "content": "## POST TO SOCIAL MEDIA\n\nPost the full_script to LinkedIn, Twitter, and Facebook",
+        "height": 150,
+        "width": 900,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1000, 200],
+      "typeVersion": 1,
+      "id": "social-posting-note",
+      "name": "Social Media Section"
+    },
+    {
+      "parameters": {
+        "url": "https://www.linkedin.com/v2/ugcPosts",
+        "method": "POST",
+        "authentication": "oauth2",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "{\n  \"author\": \"urn:li:person:{{ $env.LINKEDIN_PERSON_ID }}\",\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": {\n        \"text\": \"{{ $json.full_script }}\"\n      },\n      \"shareMediaCategory\": \"NONE\"\n    }\n  },\n  \"visibility\": {\n    \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\"\n  }\n}"
+      },
+      "id": "post-linkedin-social",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1000, 350],
+      "credentials": {
+        "linkedIn": {
+          "id": "YOUR_LINKEDIN_OAUTH_ID",
+          "name": "LinkedIn OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.twitter.com/2/tweets",
+        "method": "POST",
+        "authentication": "oauth2",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "{\n  \"text\": \"{{ $json.full_script }}\"\n}"
+      },
+      "id": "post-twitter-social",
+      "name": "Post to Twitter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1000, 500],
+      "credentials": {
+        "twitter": {
+          "id": "YOUR_TWITTER_OAUTH_ID",
+          "name": "Twitter OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://graph.facebook.com/v18.0/{{ $env.FACEBOOK_PAGE_ID }}/feed",
+        "method": "POST",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyContentType": "form-urlencoded",
+        "body": "message={{ $json.full_script }}&access_token={{ $env.FACEBOOK_PAGE_ACCESS_TOKEN }}"
+      },
+      "id": "post-facebook-social",
+      "name": "Post to Facebook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1000, 650]
     }
   ],
   "pinData": {},
@@ -360,6 +430,49 @@
       ]
     },
     "Prepare Full Script": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post to Twitter",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post to Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Generate Voice (ElevenLabs)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Twitter": {
+      "main": [
+        [
+          {
+            "node": "Generate Voice (ElevenLabs)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Facebook": {
       "main": [
         [
           {
@@ -443,11 +556,44 @@
         ]
       ]
     },
-    "Construct HeyGen Playable URL": {
+  "Construct HeyGen Playable URL": {
+    "main": [
+      [
+        {
+          "node": "Log to Video RENDERS",
+          "type": "main",
+          "index": 0
+        }
+      ]
+    ]
+  },
+    "Post to LinkedIn": {
       "main": [
         [
           {
-            "node": "Log to Video RENDERS",
+            "node": "Generate Voice (ElevenLabs)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Twitter": {
+      "main": [
+        [
+          {
+            "node": "Generate Voice (ElevenLabs)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Facebook": {
+      "main": [
+        [
+          {
+            "node": "Generate Voice (ElevenLabs)",
             "type": "main",
             "index": 0
           }
