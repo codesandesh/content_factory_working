@@ -224,7 +224,7 @@
       ],
       "credentials": {
         "airtableTokenApi": {
-          "id": "h68hvDXg5Xigfz5P",
+          "id": "JqVjfMgBjSaDHLpN",
           "name": "Airtable Personal Access Token account"
         }
       }
@@ -285,7 +285,7 @@
       ],
       "credentials": {
         "airtableTokenApi": {
-          "id": "h68hvDXg5Xigfz5P",
+          "id": "JqVjfMgBjSaDHLpN",
           "name": "Airtable Personal Access Token account"
         }
       }
@@ -447,7 +447,7 @@
       ],
       "credentials": {
         "airtableTokenApi": {
-          "id": "h68hvDXg5Xigfz5P",
+          "id": "JqVjfMgBjSaDHLpN",
           "name": "Airtable Personal Access Token account"
         }
       }
@@ -508,7 +508,7 @@
       ],
       "credentials": {
         "airtableTokenApi": {
-          "id": "h68hvDXg5Xigfz5P",
+          "id": "JqVjfMgBjSaDHLpN",
           "name": "Airtable Personal Access Token account"
         }
       }
@@ -555,37 +555,6 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://api.linkedin.com/v2/ugcPosts",
-        "authentication": "oAuth2",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {}
-          ]
-        },
-        "options": {}
-      },
-      "id": "node-s3-post-linkedin",
-      "name": "Post to LinkedIn",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        1328,
-        2000
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
         "url": "=https://graph.facebook.com/v20.0/{{ $env.FACEBOOK_PAGE_ID }}/feed",
         "sendBody": true,
         "bodyParameters": {
@@ -613,85 +582,6 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "=https://api.twitter.com/2/tweets",
-        "authentication": "oAuth2",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {}
-          ]
-        },
-        "options": {}
-      },
-      "id": "node-s3-post-twitter",
-      "name": "Post to Twitter/X",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        1296,
-        1840
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://www.reddit.com/api/submit",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "oAuth2Api",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "api_type",
-              "value": "json"
-            },
-            {
-              "name": "kind",
-              "value": "self"
-            },
-            {
-              "name": "subreddit",
-              "value": "={{ $json.Reddit_Subreddit || 'reddit' }}"
-            },
-            {
-              "name": "title",
-              "value": "={{ $json.Script_Title }}"
-            },
-            {
-              "name": "text",
-              "value": "={{ $json.Main_Content }}\n\n---\n**CTA:** {{ $json.CTA }}\n\n*Hook:* {{ $json.Hook }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "node-s3-post-reddit",
-      "name": "Post to Reddit",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        1328,
-        1360
-      ],
-      "credentials": {
-        "oAuth2Api": {
-          "id": "6Or7ukPXmVrFoAU9",
-          "name": "Unnamed credential"
-        }
-      }
-    },
-    {
-      "parameters": {
         "conditions": {
           "boolean": [],
           "dateTime": [],
@@ -699,7 +589,6 @@
           "string": [
             {
               "value1": "={{ $json._targetPlatform }}",
-              "operation": "equal",
               "value2": "linkedin"
             }
           ]
@@ -710,7 +599,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
-        900,
+        912,
         1808
       ]
     },
@@ -723,7 +612,6 @@
           "string": [
             {
               "value1": "={{ $json._targetPlatform }}",
-              "operation": "equal",
               "value2": "facebook"
             }
           ]
@@ -734,7 +622,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
-        900,
+        912,
         1312
       ]
     },
@@ -747,7 +635,6 @@
           "string": [
             {
               "value1": "={{ $json._targetPlatform }}",
-              "operation": "equal",
               "value2": "twitter/x"
             }
           ]
@@ -758,33 +645,56 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
-        900,
+        912,
         1632
       ]
     },
     {
       "parameters": {
-        "conditions": {
-          "boolean": [],
-          "dateTime": [],
-          "number": [],
-          "string": [
-            {
-              "value1": "={{ $json._targetPlatform }}",
-              "operation": "equal",
-              "value2": "reddit"
-            }
-          ]
-        }
+        "person": "RHO9va1iDz",
+        "text": "={{ $json.Hook }}\\n\\n{{ $json.Main_Content }}\\n\\n{{ $json['CTA '] }}",
+        "additionalFields": {}
       },
-      "id": "node-s3-if-reddit",
-      "name": "IF Reddit",
-      "type": "n8n-nodes-base.if",
+      "type": "n8n-nodes-base.linkedIn",
       "typeVersion": 1,
       "position": [
-        900,
-        1456
-      ]
+        1536,
+        2000
+      ],
+      "id": "04deb722-fb5d-410c-97a9-17bdc20d0703",
+      "name": "Create a post",
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "9vDPVGWlfjqQ3O0k",
+          "name": "LinkedIn account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "directMessage",
+        "user": {
+          "__rl": true,
+          "mode": "username",
+          "value": ""
+        },
+        "text": "={{ $json.Hook }}\\n\\n{{ $json.Main_Content }}\\n\\n{{ $json['CTA '] }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 2,
+      "position": [
+        1616,
+        1600
+      ],
+      "id": "9c378dc5-3337-47a5-8399-d6c434776db6",
+      "name": "Create Direct Message",
+      "credentials": {
+        "twitterOAuth2Api": {
+          "id": "BDnGxRUVkw5591UE",
+          "name": "X account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -1111,11 +1021,6 @@
             "node": "IF Twitter/X",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "IF Reddit",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
@@ -1124,7 +1029,7 @@
       "main": [
         [
           {
-            "node": "Post to LinkedIn",
+            "node": "Create a post",
             "type": "main",
             "index": 0
           }
@@ -1146,18 +1051,7 @@
       "main": [
         [
           {
-            "node": "Post to Twitter/X",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Reddit": {
-      "main": [
-        [
-          {
-            "node": "Post to Reddit",
+            "node": "Create Direct Message",
             "type": "main",
             "index": 0
           }
@@ -1170,10 +1064,10 @@
     "executionOrder": "v1",
     "availableInMCP": false
   },
-  "versionId": "cbe9a13b-d86a-4234-993d-820e1fc898fe",
+  "versionId": "a97f1238-fca9-4161-a411-353a1f6e72b0",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "dc87f94e8f44b5018e54a588eebeaae61eebdb6c256f8f2f61b7c6ba347bca63"
+    "instanceId": "1757b09cdae31473f3f31f6dcf3811ad0ffc8ba919e2d551dba14df63ed44210"
   },
   "id": "0ZSLiDZcYmBRLfgI",
   "tags": []
