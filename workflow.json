@@ -644,19 +644,6 @@
     },
     {
       "parameters": {
-        "jsCode": "// Log successful posts and update status\nconst posted = $input.all();\nfor (const post of posted) {\n  const platform = post.json._targetPlatform || 'Unknown';\n  console.log(`✅ Posted to ${platform}: ${post.json.Script_Title}`);\n}\nconsole.log(`📊 Total posts published: ${posted.length}`);\nreturn posted;"
-      },
-      "id": "node-s3-log-posts",
-      "name": "Log Published Posts",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2640,
-        1360
-      ]
-    },
-    {
-      "parameters": {
         "method": "POST",
         "url": "=https://www.reddit.com/api/submit",
         "authentication": "predefinedCredentialType",
@@ -704,55 +691,99 @@
       }
     },
     {
-      "parameters": {},
-      "id": "node-s3-merge-posts",
-      "name": "Merge All Posts",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 2.1,
+      "parameters": {
+        "conditions": {
+          "boolean": [],
+          "dateTime": [],
+          "number": [],
+          "string": [
+            {
+              "value1": "={{ $json._targetPlatform }}",
+              "operation": "equal",
+              "value2": "linkedin"
+            }
+          ]
+        }
+      },
+      "id": "node-s3-if-linkedin",
+      "name": "IF LinkedIn",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
       "position": [
-        2208,
-        1440
+        900,
+        1808
       ]
     },
     {
       "parameters": {
-        "rules": {
-          "rules": [
+        "conditions": {
+          "boolean": [],
+          "dateTime": [],
+          "number": [],
+          "string": [
             {
-              "output": 0,
-              "operator": "equal",
               "value1": "={{ $json._targetPlatform }}",
-              "value2": "linkedin"
-            },
-            {
-              "output": 1,
-              "operator": "equal",
-              "value1": "={{ $json._targetPlatform }}",
+              "operation": "equal",
               "value2": "facebook"
-            },
+            }
+          ]
+        }
+      },
+      "id": "node-s3-if-facebook",
+      "name": "IF Facebook",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        900,
+        1312
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [],
+          "dateTime": [],
+          "number": [],
+          "string": [
             {
-              "output": 2,
-              "operator": "equal",
               "value1": "={{ $json._targetPlatform }}",
+              "operation": "equal",
               "value2": "twitter/x"
-            },
+            }
+          ]
+        }
+      },
+      "id": "node-s3-if-twitter",
+      "name": "IF Twitter/X",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        900,
+        1632
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [],
+          "dateTime": [],
+          "number": [],
+          "string": [
             {
-              "output": 3,
-              "operator": "equal",
               "value1": "={{ $json._targetPlatform }}",
+              "operation": "equal",
               "value2": "reddit"
             }
           ]
-        },
-        "fallbackOutput": "none"
+        }
       },
-      "id": "node-s3-switch",
-      "name": "Switch Platform",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
+      "id": "node-s3-if-reddit",
+      "name": "IF Reddit",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
       "position": [
         900,
-        1500
+        1456
       ]
     }
   ],
@@ -1067,74 +1098,29 @@
       "main": [
         [
           {
-            "node": "Switch Platform",
+            "node": "IF LinkedIn",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF Facebook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF Twitter/X",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF Reddit",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Post to LinkedIn": {
-      "main": [
-        [
-          {
-            "node": "Merge All Posts",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Post to Facebook": {
-      "main": [
-        [
-          {
-            "node": "Merge All Posts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Post to Twitter/X": {
-      "main": [
-        [
-          {
-            "node": "Merge All Posts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log Published Posts": {
-      "main": [
-        []
-      ]
-    },
-    "Post to Reddit": {
-      "main": [
-        [
-          {
-            "node": "Merge All Posts",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Merge All Posts": {
-      "main": [
-        [
-          {
-            "node": "Log Published Posts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Switch Platform": {
+    "IF LinkedIn": {
       "main": [
         [
           {
@@ -1142,21 +1128,33 @@
             "type": "main",
             "index": 0
           }
-        ],
+        ]
+      ]
+    },
+    "IF Facebook": {
+      "main": [
         [
           {
             "node": "Post to Facebook",
             "type": "main",
             "index": 0
           }
-        ],
+        ]
+      ]
+    },
+    "IF Twitter/X": {
+      "main": [
         [
           {
             "node": "Post to Twitter/X",
             "type": "main",
             "index": 0
           }
-        ],
+        ]
+      ]
+    },
+    "IF Reddit": {
+      "main": [
         [
           {
             "node": "Post to Reddit",
