@@ -1,210 +1,16 @@
 {
-  "name": "Viral Content Factory",
+  "name": "Stage 1 Content Discovery - FULLY FIXED",
   "nodes": [
     {
-      "parameters": {
-        "jsCode": "// Filter Stage 2 - Emit ONE item per post so Gemini generates exactly ONE script per post\n// Capture the Airtable Record ID from the item object\nconst allItems = $input.all();\nconst output = [];\n\nfor (const item of allItems) {\n  // Debug: Check what structure we're getting\n  const fields = item.json.fields || item.json || {};\n  const status = fields.Status || item.json?.Status || item.json?.status || fields.status || '';\n\n  if (status.toString().trim() === 'Generate Script') {\n    // Try multiple ways to get the record ID\n    const airtable_record_id = item.id || item.json?.id || item.json?.fields?.id || '';\n    const post_id = fields.Post_ID || item.json?.Post_ID || item.json?.fields?.Post_ID || '';\n    \n    const content = fields.Content || item.json?.Content || item.json?.content || '';\n    const transcript = fields.Transcript || item.json?.Transcript || item.json?.transcript || '';\n    const shares = fields.Shares_Awards || item.json?.Shares_Awards || fields.Engagement_Rate || item.json?.engagement_rate || 0;\n    const viral_score = fields.Viral_Score || item.json?.Viral_Score || 0;\n    const hook = fields.Narrative_Hook || item.json?.Narrative_Hook || item.json?.narrative_hook || '';\n    const theme = fields.Visual_Theme || item.json?.Visual_Theme || item.json?.visual_theme || '';\n    const story = fields.Core_Story || item.json?.Core_Story || item.json?.core_story || '';\n    const platform = fields.Platform || item.json?.Platform || item.json?.platform || '';\n\n    const postBlock = `===\\nPost_ID: ${post_id}\\nContent: ${content}\\nTranscript: ${transcript}\\nShares_Awards: ${shares}\\nViral_Score: ${viral_score}\\nNarrative_Hook: ${hook}\\nVisual_Theme: ${theme}\\nCore_Story: ${story}\\nPlatform: ${platform}`;\n\n    output.push({\n      json: {\n        all_viral_content: postBlock,\n        source_record_id: airtable_record_id,\n        source_post_id: post_id,\n        _debug_item_id: item.id,\n        _debug_json_id: item.json?.id\n      }\n    });\n  }\n}\n\nreturn output;"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        176,
-        -64
-      ],
-      "id": "6e952e2a-741f-4d21-8b4c-6cac129c76a8",
-      "name": "Filter: Status = Generate Script"
-    },
-    {
-      "parameters": {
-        "promptType": "define",
-        "text": "# LINKEDIN THOUGHT LEADERSHIP POST GENERATOR\n\n## AUTHOR PROFILE\nAuthor: Ujjwal Roy\nRole: CEO of ScaleBuild AI (custom AI software, workflow automation, customer-facing tools, AI model development). Also CEO of Seethos AI (computer vision for manufacturing), Chair of IEEE Young Professionals, founding president of World AI Alliance.\nBackground: Engineering at Intel, Micron, IBM. Wall Street finance experience. Age: 32.\n\n## NEWS CONTENT TO REWRITE\n{{ $json.news_content }}\n\n---\n\n## YOUR TASK\nRewrite the news as an original thought leadership post for Ujjwal's LinkedIn. Extract the single sharpest insight from the news and build the entire post around that one idea.\n\n---\n\n## TONE & VOICE\n- Direct and to the point. No fluff, no filler, no softening language.\n- Position as credible, forward-thinking voice in AI who interprets what news means for the broader landscape.\n- Reflect perspective of hands-on AI CEO who builds real products, not passive observer.\n- Confident and opinionated, grounded with reasoning or real-world parallels.\n- Conversational and punchy. Write like 32-year-old founder talking to peers.\n- Go deeper with strategic insight or contrarian angles. Avoid generic AI hype.\n- Output must read like a real human wrote it. Use natural sentence rhythms, occasional imperfect phrasing, varied sentence lengths. Avoid templated, overly polished, or AI-generated patterns. No perfectly balanced structures. No formulaic transitions.\n\n---\n\n## STRUCTURE & LENGTH (STRICT RULES)\n- Maximum two short paragraphs. Each paragraph = 2 to 4 sentences.\n- Total word count: 50 to 100 words. Hard ceiling.\n- Opening sentence = strong, creative hook. Sharp, original observation. Surprising reframe that makes reader think differently.\n- Close with perspective, prediction, or question that invites engagement.\n- No bullet points, numbered lists, or headers.\n\n---\n\n## FORMATTING RULES\n- Never use em dashes. Use commas, periods, parentheses, or restructure.\n- No ellipses for dramatic effect.\n- No hashtags unless specifically needed.\n\n---\n\n## WHAT TO AVOID\n- Don't summarize full news story. Extract only sharpest takeaway.\n- Don't use buzzwords without substance (revolutionary, game-changing).\n- Don't write in third person. Write as Ujjwal in first person.\n- Don't pad with filler or repeat ideas.\n- Don't use AI-generated phrases: Let's dive in, Here's the thing, In today's rapidly evolving landscape, It's not just about X it's about Y.\n- Don't open with a question. Lead with a statement.\n\n---\n\n## OUTPUT FORMAT\nReturn ONLY valid JSON. No markdown. No explanation. No extra text.\n\n{\n  \\\"scripts\\\": [\n    {\n      \\\"script_title\\\": \\\"[Ujjwal Roy] - LinkedIn Post - [Core Insight]\\\",\n      \\\"content_type_detected\\\": \\\"[NEWS / AI-TECH / INDUSTRY-INSIGHT / CONTRARIAN-TAKE]\\\",\n      \\\"script_style_applied\\\": \\\"Direct-Strategic\\\",\n      \\\"core_pain_targeted\\\": \\\"[The single most important business or industry insight]\\\",\n      \\\"variation\\\": 1,\n      \\\"scenes\\\": [\n        {\n          \\\"type\\\": \\\"hook\\\",\n          \\\"text\\\": \\\"[First sentence: strong, creative hook that stops scroll. Sharp observation.]\\\",\n          \\\"visual\\\": \\\"[Ujjwal - authentic expression of the insight, thinking moment]\\\",\n          \\\"duration\\\": 2,\n          \\\"avatar_visible\\\": true\n        },\n        {\n          \\\"type\\\": \\\"main\\\",\n          \\\"text\\\": \\\"[Second paragraph: strategic insight, real-world reasoning, contrarian angle, or prediction]\\\",\n          \\\"visual\\\": \\\"[Ujjwal - explaining with confidence, gesturing to emphasize point]\\\",\n          \\\"duration\\\": 2,\n          \\\"avatar_visible\\\": true\n        },\n        {\n          \\\"type\\\": \\\"cta\\\",\n          \\\"text\\\": \\\"[Closing: perspective, prediction, or question that invites engagement from peers]\\\",\n          \\\"visual\\\": \\\"[Ujjwal - open gesture, inviting conversation or thoughts]\\\",\n          \\\"duration\\\": 1,\n          \\\"avatar_visible\\\": true\n        }\n      ],\n      \\\"tone\\\": \\\"Direct-Strategic\\\",\n      \\\"target_platforms\\\": [\\\"LinkedIn\\\"],\n      \\\"estimated_duration\\\": 5,\n      \\\"hashtags\\\": [],\n      \\\"visual_cues\\\": \\\"Authentic, no corporate fluff. Ujjwal as credible AI voice. Natural, conversational delivery.\\\"\n    }\n  ]\n}",
-        "batching": {
-          "batchSize": 1
-        }
-      },
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.7,
-      "position": [
-        384,
-        -64
-      ],
-      "id": "2fd173ee-f222-4970-b717-7abdc151cbbf",
-      "name": "Generate Video Script",
-      "settings": {
-        "errorHandling": "continueRegular"
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Parse AI Script - Extracts ALL scripts and maps source_record_id from Filter node\nconst inputs = $input.all();  // Get ALL inputs from Gemini\nconst filterItems = $items('Filter: Status = Generate Script');  // Get output from Filter node\nconst output = [];\n\n// Create mapping of filter outputs indexed by position\nconst filterMap = {};\nfor (let i = 0; i < filterItems.length; i++) {\n  filterMap[i] = {\n    source_record_id: filterItems[i]?.json?.source_record_id || '',\n    source_post_id: filterItems[i]?.json?.source_post_id || ''\n  };\n}\n\n// Process ALL inputs (each input represents one Gemini response)\nfor (let inputIndex = 0; inputIndex < inputs.length; inputIndex++) {\n  const input = inputs[inputIndex];\n  const rawText = input.json.text || '';\n  \n  // Get source_record_id from the corresponding filter output\n  const filterData = filterMap[inputIndex] || { source_record_id: '', source_post_id: '' };\n  \n  let parsed = {};\n  try {\n    parsed = JSON.parse(rawText);\n  } catch (e) {\n    const jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      try {\n        parsed = JSON.parse(jsonMatch[0]);\n      } catch (e2) {}\n    }\n  }\n  \n  const scripts = parsed.scripts || [];\n  \n  // Process ALL scripts within each input\n  for (const script of scripts) {\n    if (script.scenes) {\n      const hook = script.scenes.filter(s => s.type === 'hook').map(s => s.text).join(' ');\n      const main = script.scenes.filter(s => s.type === 'main').map(s => s.text).join(' ');\n      const cta = script.scenes.filter(s => s.type === 'cta').map(s => s.text).join(' ');\n      const visuals = script.scenes.map(s => s.visual).join(' | ');\n      \n      output.push({\n        json: {\n          script_title: script.script_title || 'New Script',\n          source_record_id: filterData.source_record_id,\n          source_post_id: filterData.source_post_id,\n          hook: hook,\n          main_content: main,\n          cta: cta,\n          visual_cues: visuals,\n          tone: script.tone || 'Professional',\n          content_type_detected: script.content_type_detected || '',\n          script_style_applied: script.script_style_applied || '',\n          core_pain_targeted: script.core_pain_targeted || '',\n          target_platforms: script.target_platforms || ['Instagram'],\n          estimated_duration: script.estimated_duration || 20,\n          hashtags: script.hashtags || [],\n          variation: script.variation || 1\n        }\n      });\n    }\n  }\n}\n\nreturn output;"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        720,
-        -64
-      ],
-      "id": "parse-ai-script-id",
-      "name": "Parse AI Script"
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
-      "typeVersion": 1,
-      "position": [
-        592,
-        96
-      ],
-      "id": "b0000ff6-0eb8-4e76-ba99-b98e3a00cf2c",
-      "name": "Gemini 2.0 Script",
-      "credentials": {
-        "googlePalmApi": {
-          "id": "igaSdthsiO1WHIs5",
-          "name": "Google Gemini(PaLM) Api account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "create",
-        "base": {
-          "__rl": true,
-          "value": "={{ $env.AIRTABLE_BASE_ID }}",
-          "mode": "id"
-        },
-        "table": {
-          "__rl": true,
-          "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}",
-          "mode": "id"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "Name": "={{ $json.script_title }}",
-            "Source_Content_ID": "={{ $json.source_record_id }}",
-            "Script_Title": "={{ $json.script_title }}",
-            "Hook": "={{ $json.hook }}",
-            "Main_Content": "={{ $json.main_content }}",
-            "CTA ": "={{ $json.cta }}",
-            "Visual_Cues": "={{ $json.visual_cues }}",
-            "Tone": "={{ $json.tone }}",
-            "Hashtags": "={{ Array.isArray($json.hashtags) ? $json.hashtags.join(', ') : ($json.hashtags || '') }}",
-            "Estimated_Duration": "={{ $json.estimated_duration }}",
-            "Target_Platforms ": "={{ Array.isArray($json.target_platforms) ? $json.target_platforms.join(', ') : $json.target_platforms }}",
-            "Status": "Pending Approval",
-            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}"
-          }
-        },
-        "options": {
-          "typecast": true
-        }
-      },
-      "type": "n8n-nodes-base.airtable",
-      "typeVersion": 2.1,
-      "position": [
-        928,
-        -64
-      ],
-      "id": "45860e49-ffd7-4dc9-9dcf-c3e81e80b3ab",
-      "name": "Store Script in Library",
-      "credentials": {
-        "airtableTokenApi": {
-          "id": "h68hvDXg5Xigfz5P",
-          "name": "Airtable Personal Access Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "content": "## STAGE 2: SCRIPT GENERATION\n\n",
-        "height": 416,
-        "width": 2552,
-        "color": 5
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        -368,
-        -176
-      ],
-      "typeVersion": 1,
-      "id": "a72a2661-8a64-408e-a6ee-d20191f40ad4",
-      "name": "STAGE 2 - Script Generation"
-    },
-    {
       "parameters": {},
-      "id": "5768a8b4-ff6b-4e3a-b0be-1b2c5c6b99fb",
-      "name": "Trigger Generate Script",
+      "id": "node-1",
+      "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        -256,
-        -48
+        208,
+        400
       ]
-    },
-    {
-      "parameters": {
-        "operation": "search",
-        "base": {
-          "__rl": true,
-          "value": "={{ $env.AIRTABLE_BASE_ID }}",
-          "mode": "id"
-        },
-        "table": {
-          "__rl": true,
-          "value": "={{ $env.AT_TABLE_VIRAL_DB }}",
-          "mode": "id"
-        },
-        "filterByFormula": "{Status} = 'Generate Script'",
-        "options": {}
-      },
-      "id": "get-analyzed-content-id",
-      "name": "Get Analyzed Content",
-      "type": "n8n-nodes-base.airtable",
-      "typeVersion": 2.1,
-      "position": [
-        -32,
-        -48
-      ],
-      "credentials": {
-        "airtableTokenApi": {
-          "id": "h68hvDXg5Xigfz5P",
-          "name": "Airtable Personal Access Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "content": "## STAGE 1: CONTENT DISCOVERY PIPELINE\n\n### Flow:\n[1] Webhook Trigger → Cron\n[2] Google Trends → Viral Keywords\n[3] Apify Instagram Reel Scraper → Reel Metadata + URLs\n[4] Loop Over Reels\n[5] FFmpeg (local) → Extract Audio from Reel URL\n[6] Whisper API → Transcription\n[7] Gemini → Viral Analysis\n[8] Airtable → Store in Viral Content DB\n\n### ENV VARS NEEDED:\n- AIRTABLE_BASE_ID\n- AT_TABLE_VIRAL_DB\n- APIFY_API_TOKEN\n- OPENAI_API_KEY (for Whisper)\n- GOOGLE_GEMINI_API_KEY\n- FFMPEG_TEMP_DIR (e.g. /tmp/reels)",
-        "height": 828,
-        "width": 6248,
-        "color": 4
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        -288,
-        -1168
-      ],
-      "typeVersion": 1,
-      "id": "note-stage1",
-      "name": "STAGE 1 - Overview"
-    },
-    {
-      "parameters": {
-        "content": "## STEP 1: TRIGGER\nRuns on schedule or webhook.\nChange cron rule as needed.",
-        "height": 180,
-        "width": 400,
-        "color": 6
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        320,
-        -1280
-      ],
-      "typeVersion": 1,
-      "id": "note-step1",
-      "name": "Note Step1"
     },
     {
       "parameters": {
@@ -217,381 +23,32 @@
           ]
         }
       },
+      "id": "node-2",
+      "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        464,
-        -1056
-      ],
-      "id": "schedule-trigger-id",
-      "name": "Schedule Trigger (Every 12h)"
-    },
-    {
-      "parameters": {},
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
-      "position": [
-        480,
-        -832
-      ],
-      "id": "webhook-trigger-id",
-      "name": "Manual Discovery Trigger"
+        208,
+        240
+      ]
     },
     {
       "parameters": {
-        "content": "## STEP 2: GOOGLE TRENDS\nFetch trending topics from Google Trends RSS.\nParse XML → extract keyword list.",
-        "height": 180,
-        "width": 400,
-        "color": 6
+        "jsCode": "const subreddits = [\n  'Artificial',\n  'ArtificialInteligence',\n  'OpenAI',\n  'MachineLearning',\n  'singularity'\n];\n\nconst startUrls = [];\nfor (const sub of subreddits) {\n  startUrls.push({ url: `https://www.reddit.com/r/${sub}/top.json?t=day&limit=10` });\n}\n\nreturn [{ json: { startUrls } }];"
       },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        752,
-        -1280
-      ],
-      "typeVersion": 1,
-      "id": "note-step2",
-      "name": "Note Step2"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Generate RSS URLs for 36 countries to maximize viral trend coverage\nconst geos = [\"US\", \"IN\", \"GB\", \"CA\", \"AU\", \"BR\", \"NG\", \"ID\", \"MX\", \"DE\", \"FR\", \"JP\", \"KR\", \"TR\", \"IT\", \"ES\", \"VN\", \"PH\", \"TH\", \"MY\", \"SG\", \"NZ\", \"IE\", \"NL\", \"BE\", \"CH\", \"AT\", \"SE\", \"NO\", \"DK\", \"PL\", \"IL\", \"ZA\", \"EG\", \"SA\", \"AE\"];\nreturn geos.map(geo => ({ json: { geo, url: `https://trends.google.com/trending/rss?geo=${geo}` } }));"
-      },
+      "id": "node-3",
+      "name": "Generate Reddit URLs",
       "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
-        640,
-        -992
-      ],
-      "id": "generate-global-urls-id",
-      "name": "Generate Global URLs"
-    },
-    {
-      "parameters": {
-        "url": "={{ $json.url }}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "text"
-            }
-          }
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [
-        848,
-        -992
-      ],
-      "id": "google-trends-id",
-      "name": "Fetch Google Trends RSS"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Parse ALL Google Trends RSS feeds → extract FULL metadata + descriptive keywords\nconst items = $input.all();\nconst allTrends = [];\n\nfor (const item of items) {\n  const xml = item.json.data || '';\n  const geo = item.json.geo || 'US';\n  \n  if (!xml || xml.length < 100) continue;\n  \n  // Extract each <item> block from RSS\n  const itemMatches = [...xml.matchAll(/<item>([\\s\\S]*?)<\\/item>/g)];\n  \n  for (const match of itemMatches) {\n    const inner = match[1];\n    \n    // Extract title (keyword)\n    const titleMatch = inner.match(/<title>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?<\\/title>/);\n    const title = titleMatch ? titleMatch[1].trim() : '';\n    if (!title || title === 'Daily Search Trends') continue;\n    \n    // Extract approx traffic / search volume\n    const trafficMatch = inner.match(/<ht:approx_traffic>(.*?)<\\/ht:approx_traffic>/);\n    const approx_traffic = trafficMatch ? trafficMatch[1].trim() : '0';\n    \n    // Extract ALL news item titles (context for the trend)\n    const newsItemTitles = [...inner.matchAll(/<ht:news_item_title>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?<\\/ht:news_item_title>/g)]\n      .map(m => m[1].trim());\n    \n    // Extract news item sources\n    const newsItemSources = [...inner.matchAll(/<ht:news_item_source>(.*?)<\\/ht:news_item_source>/g)]\n      .map(m => m[1].trim());\n    \n    // Extract news item URLs\n    const newsItemUrls = [...inner.matchAll(/<ht:news_item_url>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?<\\/ht:news_item_url>/g)]\n      .map(m => m[1].trim());\n    \n    // Extract picture URL\n    const picMatch = inner.match(/<ht:picture>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?<\\/ht:picture>/);\n    const picture = picMatch ? picMatch[1].trim() : '';\n    \n    // Extract pubDate\n    const pubDateMatch = inner.match(/<pubDate>(.*?)<\\/pubDate>/);\n    const pubDate = pubDateMatch ? pubDateMatch[1].trim() : '';\n    \n    // Parse traffic number for sorting\n    const trafficNum = parseInt(approx_traffic.replace(/[^0-9]/g, '')) || 0;\n    \n    // Build descriptive one-sentence keyword using news context\n    const newsContext = newsItemTitles.length > 0 ? newsItemTitles[0] : '';\n    const descriptive_keyword = newsContext \n      ? `${title} - ${newsContext}`\n      : title;\n    \n    allTrends.push({\n      trend_keyword: title,\n      descriptive_keyword: descriptive_keyword,\n      approx_traffic: approx_traffic,\n      traffic_number: trafficNum,\n      news_headlines: newsItemTitles.join(' | '),\n      news_sources: newsItemSources.join(', '),\n      news_urls: newsItemUrls.join(' | '),\n      picture_url: picture,\n      pub_date: pubDate,\n      geo: geo,\n      source: 'Google Trends',\n      fetched_at: new Date().toISOString()\n    });\n  }\n}\n\n// Deduplicate by keyword (case-insensitive)\nconst unique = [];\nconst seen = new Set();\nfor (const t of allTrends) {\n  const key = t.trend_keyword.toLowerCase();\n  if (!seen.has(key)) {\n    seen.add(key);\n    unique.push({ json: t });\n  }\n}\n\n// Sort by traffic (highest first)\nunique.sort((a, b) => (b.json.traffic_number || 0) - (a.json.traffic_number || 0));\n\nreturn unique;"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        1056,
-        -992
-      ],
-      "id": "parse-trends-id",
-      "name": "Parse All Trends (Full Metadata)"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Filter: Keep only VIRAL trends (high traffic) — target 500+\n// Keeps everything with 10k+ searches, sorted by traffic descending\nconst items = $input.all();\n\n// Filter: keep trends with meaningful search volume (10k+)\nconst viral = items.filter(item => {\n  const traffic = item.json.traffic_number || 0;\n  return traffic >= 10000;\n});\n\n// If less than 500 after filtering, include ALL trends (don't lose data)\nconst result = viral.length >= 100 ? viral : items;\n\n// Use descriptive keyword as the main trend_keyword for Apify search\nreturn result.map(item => ({\n  json: {\n    ...item.json,\n    trend_keyword: item.json.descriptive_keyword || item.json.trend_keyword\n  }\n}));"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        1264,
-        -992
-      ],
-      "id": "limit-keywords-id",
-      "name": "Filter Viral Trends (500+)"
-    },
-    {
-      "parameters": {
-        "promptType": "define",
-        "text": "=# VIRAL SCOUT — MILLION-LIKE POTENTIAL ANALYZER\n\nYou are a viral content analyst. Your job is to determine if this trending topic has REAL viral reel potential — the kind of content that gets millions of views on Instagram/TikTok.\n\n## TREND DATA\n- **Topic**: {{ $json.trend_keyword }}\n- **Search Volume**: {{ $json.approx_traffic }}\n- **News Context**: {{ $json.news_headlines || 'N/A' }}\n- **News Sources**: {{ $json.news_sources || 'N/A' }}\n- **Country**: {{ $json.geo }}\n- **Descriptive Keyword**: {{ $json.descriptive_keyword || $json.trend_keyword }}\n\n## VIRAL CATEGORIES (What we want):\n1. **Memes & Bizarre** — Penguin walking away from group, unusual animal behavior, absurd news\n2. **Tech & AI Breakthroughs** — GPT-5 launch, Chinese humanoid robots, new AI tools\n3. **Celebrity/CEO Moments** — Sundar Pichai robot meme, Elon tweets, viral CEO clips\n4. **Shocking News** — Court cases, scandals, unexpected revelations\n5. **Innovation & Science** — New inventions, space discoveries, medical breakthroughs\n6. **Cultural Phenomena** — Viral challenges, dance trends, unexpected heroes\n\n## WHAT TO REJECT:\n- Local sports scores (\"Team X beat Team Y 3-2\")\n- Weather reports\n- Stock market daily movements\n- Local politics with no viral hook\n- Generic celebrity gossip without a meme-worthy angle\n- Regular TV show episode releases\n\n## SCORING RULES:\n- **Tier S (95-100)**: Guaranteed viral. Massive search volume 1M+ AND meme/shock/innovation potential\n- **Tier A (85-94)**: Very high potential. 200k+ searches with strong visual/meme hook\n- **Tier B (70-84)**: Good potential. Has a unique angle that could work for reels\n- **Tier C (50-69)**: Maybe. Needs creative angle to work\n- **REJECT (0-49)**: Not worth Apify credits. Local noise, boring, no reel potential\n\n## YOUR TASK:\n1. Score the viral potential (0-100)\n2. Decide if it's a BANGER (worth spending Apify credits on)\n3. Create an OPTIMIZED Instagram search keyword — a vivid sentence for finding viral reels about this topic\n4. Identify the viral angle — what makes this topic shareable\n\n## OUTPUT (JSON ONLY, no markdown):\n{\n  \"viral_score\": 0,\n  \"is_banger\": true,\n  \"category\": \"Meme/Tech/Innovation/Bizarre/Celebrity/News\",\n  \"instagram_search_keyword\": \"Vivid one-sentence search phrase optimized for Instagram reel discovery\",\n  \"viral_angle\": \"Why this will go viral in one sentence\",\n  \"reject_reason\": \"Only fill if is_banger is false\"\n}",
-        "batching": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.7,
-      "position": [
-        1952,
-        -992
-      ],
-      "id": "gemini-viral-scout-id",
-      "name": "Gemini: Viral Scout",
-      "settings": {
-        "errorHandling": "continueRegular"
-      },
-      "onError": "continue"
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
-      "typeVersion": 1,
-      "position": [
-        2000,
-        -800
-      ],
-      "id": "gemini-scout-model-id",
-      "name": "Gemini 2.0 (Scout)",
-      "credentials": {
-        "googlePalmApi": {
-          "id": "igaSdthsiO1WHIs5",
-          "name": "Google Gemini(PaLM) Api account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Parse Gemini Viral Scout results and filter only BANGERS\nconst items = $input.all();\nconst bangers = [];\n\nfor (const item of items) {\n  const rawText = item.json.text || item.json.output || '';\n  let analysis = {};\n  \n  try {\n    analysis = JSON.parse(rawText);\n  } catch(e) {\n    // Try to extract JSON from response\n    const jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      try { analysis = JSON.parse(jsonMatch[0]); } catch(e2) {}\n    }\n  }\n  \n  // Only keep bangers (is_banger === true AND viral_score >= 70)\n  if (analysis.is_banger === true && (analysis.viral_score || 0) >= 70) {\n    bangers.push({\n      json: {\n        // Use Gemini's optimized search keyword for Apify\n        trend_keyword: analysis.instagram_search_keyword || item.json.trend_keyword || '',\n        original_keyword: item.json.trend_keyword || '',\n        viral_score: analysis.viral_score || 0,\n        category: analysis.category || 'Unknown',\n        viral_angle: analysis.viral_angle || '',\n        approx_traffic: item.json.approx_traffic || '0',\n        traffic_number: item.json.traffic_number || 0,\n        news_headlines: item.json.news_headlines || '',\n        news_sources: item.json.news_sources || '',\n        picture_url: item.json.picture_url || '',\n        geo: item.json.geo || '',\n        source: item.json.source || 'Google Trends',\n        fetched_at: item.json.fetched_at || new Date().toISOString()\n      }\n    });\n  }\n}\n\n// Sort by viral score (highest first)\nbangers.sort((a, b) => (b.json.viral_score || 0) - (a.json.viral_score || 0));\n\n// Return all bangers (should be much less than 500, saving Apify credits)\nif (bangers.length === 0) {\n  return [{ json: { error: 'No viral bangers found this cycle', total_analyzed: items.length } }];\n}\n\nreturn bangers;"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        2288,
-        -992
-      ],
-      "id": "top-viral-bangers-id",
-      "name": "Top Viral Bangers"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Generate Reddit API URLs for viral subreddits\n// Using hot, rising, and top (past 24h) endpoints\nconst subreddits = ['all', 'technology', 'Futurology', 'worldnews', 'interestingasfuck', 'nextfuckinglevel', 'memes', 'science'];\nconst endpoints = [\n  { type: 'hot', suffix: 'hot.json?limit=30' },\n  { type: 'rising', suffix: 'rising.json?limit=30' },\n  { type: 'top', suffix: 'top.json?t=day&limit=30' }\n];\n\nconst urls = [];\nfor (const sub of subreddits) {\n  for (const ep of endpoints) {\n    urls.push({\n      json: {\n        url: `https://www.reddit.com/r/${sub}/${ep.suffix}`,\n        subreddit: sub,\n        endpoint_type: ep.type\n      }\n    });\n  }\n}\nreturn urls;"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        640,
-        -720
-      ],
-      "id": "generate-reddit-urls-id",
-      "name": "Generate Reddit URLs"
-    },
-    {
-      "parameters": {
-        "url": "={{ $json.url }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "User-Agent",
-              "value": "n8n-content-factory/1.0"
-            }
-          ]
-        },
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "json"
-            }
-          },
-          "timeout": 30000
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [
-        848,
-        -720
-      ],
-      "id": "fetch-reddit-posts-id",
-      "name": "Fetch Reddit Posts"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Parse Reddit JSON responses → normalize to same format as Google Trends\nconst items = $input.all();\nconst allPosts = [];\n\nfor (const item of items) {\n  const data = item.json.data || item.json;\n  const children = data?.children || [];\n  const subreddit = item.json.subreddit || 'all';\n  const endpointType = item.json.endpoint_type || 'hot';\n  \n  for (const child of children) {\n    const post = child.data || child;\n    if (!post || !post.title) continue;\n    \n    // Skip stickied/pinned posts\n    if (post.stickied) continue;\n    \n    const upvotes = post.ups || post.score || 0;\n    const comments = post.num_comments || 0;\n    const awards = post.total_awards_received || 0;\n    const upvoteRatio = post.upvote_ratio || 0;\n    \n    // Calculate engagement score\n    const engagementScore = upvotes + (comments * 2) + (awards * 10);\n    \n    allPosts.push({\n      trend_keyword: post.title,\n      descriptive_keyword: `${post.title} - r/${post.subreddit || subreddit}`,\n      approx_traffic: `${upvotes.toLocaleString()}+ upvotes`,\n      traffic_number: upvotes,\n      news_headlines: post.title,\n      news_sources: `Reddit r/${post.subreddit || subreddit}`,\n      news_urls: post.url || `https://reddit.com${post.permalink || ''}`,\n      picture_url: (post.thumbnail && post.thumbnail !== 'self' && post.thumbnail !== 'default') ? post.thumbnail : '',\n      pub_date: post.created_utc ? new Date(post.created_utc * 1000).toISOString() : new Date().toISOString(),\n      geo: 'Global',\n      source: 'Reddit',\n      reddit_subreddit: post.subreddit || subreddit,\n      reddit_endpoint: endpointType,\n      reddit_upvotes: upvotes,\n      reddit_comments: comments,\n      reddit_awards: awards,\n      reddit_upvote_ratio: upvoteRatio,\n      reddit_engagement: engagementScore,\n      reddit_permalink: `https://reddit.com${post.permalink || ''}`,\n      fetched_at: new Date().toISOString()\n    });\n  }\n}\n\n// Deduplicate by title\nconst unique = [];\nconst seen = new Set();\nfor (const p of allPosts) {\n  const key = p.trend_keyword.toLowerCase().substring(0, 80);\n  if (!seen.has(key)) {\n    seen.add(key);\n    unique.push({ json: p });\n  }\n}\n\n// Sort by engagement (highest first)\nunique.sort((a, b) => (b.json.reddit_engagement || 0) - (a.json.reddit_engagement || 0));\n\nreturn unique.length > 0 ? unique : [{ json: { error: 'No Reddit posts found', source: 'Reddit' } }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        1056,
-        -720
-      ],
-      "id": "parse-reddit-posts-id",
-      "name": "Parse Reddit Posts"
-    },
-    {
-      "parameters": {},
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
-      "position": [
-        1568,
-        -912
-      ],
-      "id": "merge-sources-id",
-      "name": "Merge: Google Trends + Reddit"
-    },
-    {
-      "parameters": {
-        "operation": "create",
-        "base": {
-          "__rl": true,
-          "value": "={{ $env.AIRTABLE_BASE_ID }}",
-          "mode": "id"
-        },
-        "table": {
-          "__rl": true,
-          "value": "={{ $env.AT_TABLE_INSPIRATION }}",
-          "mode": "id"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "Name": "={{ ($json.original_keyword || $json.trend_keyword || '').substring(0, 100) }}",
-            "Platform": "={{ $json.source || 'Google Trends' }}",
-            "Search_Keyword": "={{ $json.trend_keyword }}",
-            "Category": "={{ $json.Category }}",
-            "Viral_Score": "={{ $json.viral_score || 0 }}",
-            "Viral_Angle": "={{ $json.Viral_Angle }}",
-            "Approx_Traffic": "={{ $json.approx_traffic || '0' }}",
-            "News_Context": "={{ ($json.news_headlines || '').substring(0, 500) }}",
-            "Source_URL": "={{ $json.Source_URL }}",
-            "Geo": "={{ $json.geo || 'Global' }}",
-            "Status": "Pending",
-            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}"
-          }
-        },
-        "options": {
-          "typecast": true
-        }
-      },
-      "type": "n8n-nodes-base.airtable",
-      "typeVersion": 2.1,
-      "position": [
-        2464,
-        -992
-      ],
-      "id": "store-inspiration-id",
-      "name": "Store in Inspiration DB",
-      "credentials": {
-        "airtableTokenApi": {
-          "id": "h68hvDXg5Xigfz5P",
-          "name": "Airtable Personal Access Token account"
-        }
-      }
-    },
-    {
-      "parameters": {},
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
-      "position": [
-        2288,
-        -720
-      ],
-      "id": "trigger-scraping-id",
-      "name": "Trigger Scraping Run"
-    },
-    {
-      "parameters": {
-        "operation": "search",
-        "base": {
-          "__rl": true,
-          "value": "={{ $env.AIRTABLE_BASE_ID }}",
-          "mode": "id"
-        },
-        "table": {
-          "__rl": true,
-          "value": "={{ $env.AT_TABLE_INSPIRATION }}",
-          "mode": "id"
-        },
-        "filterByFormula": "{Status} = 'Pending'",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.airtable",
-      "typeVersion": 2.1,
-      "position": [
-        2464,
-        -720
-      ],
-      "id": "read-inspiration-id",
-      "name": "Read Inspiration DB (Pending)",
-      "credentials": {
-        "airtableTokenApi": {
-          "id": "h68hvDXg5Xigfz5P",
-          "name": "Airtable Personal Access Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "promptType": "define",
-        "text": "=# INSTAGRAM REEL SEARCH OPTIMIZER\n\nYou are an expert in Instagram Reels and viral discovery. Your goal is to generate ONE highly effective SEARCH QUERY (a long, vivid descriptive phrase) that will help find the best viral reels for this topic.\n\n## TREND DATA\n- **Name**: {{ $json.Name }}\n- **Platform**: {{ $json.Platform }}\n- **Search Keyword**: {{ $json.Search_Keyword }}\n- **Viral Angle**: {{ $json.Viral_Angle }}\n- **Category**: {{ $json.Category }}\n\n## YOUR TASK:\n1. Analyze the trend and viral angle.\n2. Generate ONE short but vivid search phrase (e.g., \"elon musk robot meme 2024 viral\", \"funny penguin trip ice glitch\").\n3. Do not use # symbols. Just the phrase.\n\n## OUTPUT (JSON ONLY, no markdown):\n{\n  \"search_query\": \"The vivid search phrase optimized for Reel discovery\"\n}",
-        "batching": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.7,
-      "position": [
-        2688,
-        -720
-      ],
-      "id": "gemini-hashtag-optimizer-id",
-      "name": "Gemini: Hashtag Optimizer",
-      "settings": {
-        "errorHandling": "continueRegular"
-      },
-      "onError": "continue"
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
-      "typeVersion": 1,
-      "position": [
-        2736,
-        -528
-      ],
-      "id": "gemini-optimizer-model-id",
-      "name": "Gemini 2.0 (Optimizer)",
-      "credentials": {
-        "googlePalmApi": {
-          "id": "igaSdthsiO1WHIs5",
-          "name": "Google Gemini(PaLM) Api account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Parse Gemini Keyword Optimizer results in BATCH mode\nconst items = $input.all();\nconst airtableRecords = $(\"Read Inspiration DB (Pending)\").all();\n\nreturn items.map((item, index) => {\n  const rawText = item.json.text || item.json.output || '';\n  let analysis = {};\n  \n  try {\n    analysis = JSON.parse(rawText);\n  } catch(e) {\n    const jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      try { analysis = JSON.parse(jsonMatch[0]); } catch(e2) {}\n    }\n  }\n\n  // Get corresponding Airtable record\n  const airtableData = airtableRecords[index]?.json || {};\n\n  // Fallback if no search_query found\n  const query = analysis.search_query || airtableData.Search_Keyword || \"\";\n\n  return {\n    json: {\n      ...airtableData,\n      optimized_query: query\n    }\n  };\n});"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        2944,
-        -720
-      ],
-      "id": "parse-hashtags-id",
-      "name": "Parse Keywords"
-    },
-    {
-      "parameters": {
-        "content": "## STEP 3: APIFY SCRAPER\nUse Instagram Hashtag / Reel Scraper.\nActor: apify/instagram-reel-scraper\n(or apify/instagram-hashtag-scraper)\n\nReturns: url, likes, comments, views,\nfollowers, caption, timestamp etc.",
-        "height": 220,
-        "width": 440,
-        "color": 6
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        1296,
-        -1312
-      ],
-      "typeVersion": 1,
-      "id": "note-step3",
-      "name": "Note Step3"
+        448,
+        400
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://api.apify.com/v2/acts/patient_discovery~instagram-search-reels/run-sync-get-dataset-items?token={{ $env.APIFY_API_TOKEN }}",
+        "url": "=https://api.apify.com/v2/acts/trudax~reddit-scraper-lite/run-sync-get-dataset-items?token={{ $env.APIFY_API_TOKEN }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -603,112 +60,79 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"query\": $json.optimized_query || $json.Search_Keyword,\n  \"resultsLimit\": 10\n} }}",
+        "jsonBody": "={{ JSON.stringify({ startUrls: $json.startUrls, maxItems: 50, skipComments: true, maxComments: 0, maxCommunitiesCount: 5, maxPostCount: 10, proxy: { useApifyProxy: true } }) }}",
         "options": {
-          "batching": {
-            "batch": {
-              "batchSize": 1
-            }
-          },
-          "response": {
-            "response": {
-              "responseFormat": "json"
-            }
-          },
-          "timeout": 120000
+          "allowUnauthorizedCerts": true,
+          "timeout": 600000
         }
       },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [
-        3200,
-        -720
-      ],
-      "id": "apify-scraper-id",
-      "name": "Apify: Scrape Instagram Reels",
-      "executeOnce": false,
-      "notes": "Actor: apify~instagram-reel-scraper\nTimestamp: May take 30-60s. Sync mode returns results directly.\nIf timeout: switch to async run + poll dataset."
-    },
-    {
-      "parameters": {
-        "jsCode": "// Normalize Apify Instagram Reel Scraper output (Batch Mode)\nconst airtableKeywords = $items(\"Parse Keywords\");\nlet normalized = [];\n\nconst inputs = $input.all();\ninputs.forEach((input, index) => {\n  // Find the keyword that triggered this specific search\n  const keywordData = airtableKeywords[index] ? airtableKeywords[index].json : {};\n  const parentKeyword = keywordData.optimized_query || keywordData.Search_Keyword || \"\";\n\n  // Handle Apify's variable output structure\n  const raw = input.json;\n  let rawArray = [];\n  if (Array.isArray(raw)) {\n    rawArray = raw;\n  } else if (raw && raw.data && Array.isArray(raw.data)) {\n    rawArray = raw.data;\n  } else if (raw) {\n    rawArray = [raw];\n  }\n\n  // Filter and map this keyword's specific reels\n  const mappedReels = rawArray\n    .filter(item => item && (item.code || item.shortCode || item.shortcode || item.id || item.reel_id))\n    .map(item => {\n      const metrics = item.engagement_metrics || {};\n      const details = item.content_details || {};\n\n      return {\n        json: {\n          // Identity\n          content_code:   item.shortcode || item.code || item.shortCode || item.reel_id || item.id || '',\n          url:            item.url  || `https://www.instagram.com/reel/${item.shortcode || item.code || item.shortCode}/`,\n          video_url:      item.video_url || item.videoUrl || '',\n          platform:       'Instagram',\n\n          // Content / Caption\n          prompt:         details.caption || item.caption?.text || item.text || item.caption || '',\n          timestamp:      item.scraped_at || item.taken_at_ts || item.taken_at || item.timestamp || new Date().toISOString(),\n\n          // Engagement Metrics\n          likes:          metrics.like_count || item.like_count || item.likesCount || 0,\n          comments:       metrics.comment_count || item.comment_count || item.commentsCount || 0,\n          views:          metrics.play_count || item.ig_play_count || item.play_count || item.videoViewCount || 0,\n          shares:         metrics.share_count || item.share_count || item.sharesCount || 0,\n          saves:          metrics.save_count || item.savesCount || item.saves || 0,\n\n          // Subtitles (New)\n          subtitle_url:   item.video_subtitles_uri || '',\n\n          // Author Metadata\n          author:         item.creator?.username || item.user?.username || item.ownerUsername || item.username || '',\n          author_id:      item.creator?.id || item.user?.id || item.ownerId || item.userId || '',\n          followers:      item.creator?.follower_count || item.owner?.followedByCount || 0,\n\n          // Computed\n          engagement_rate: (\n            ((metrics.like_count || 0) + (metrics.comment_count || 0)) /\n            Math.max(metrics.play_count || item.ig_play_count || item.play_count || 1, 1) * 100\n          ).toFixed(2),\n\n          // Pass through optimized query\n          trend_keyword: parentKeyword\n        }\n      };\n    });\n    \n  normalized = normalized.concat(mappedReels);\n});\n\nreturn normalized.length > 0 ? normalized : [{ json: { error: 'No reels found', raw: $input.all() } }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        3440,
-        -720
-      ],
-      "id": "normalize-reels-id",
-      "name": "Normalize Reel Metadata"
-    },
-    {
-      "parameters": {
-        "url": "={{ ($json.subtitle_url && $json.subtitle_url.startsWith('http')) ? $json.subtitle_url : 'https://httpbin.org/status/200' }}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "text"
-            }
-          }
-        }
-      },
+      "id": "node-4",
+      "name": "Fetch Reddit via Apify",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        3440,
-        -960
+        672,
+        400
       ],
-      "id": "fetch-subtitles-id",
-      "name": "Fetch Subtitles (SRT)",
       "onError": "continueRegular"
     },
     {
       "parameters": {
-        "jsCode": "// Clean SRT subtitles into plain text and merge perfectly with original metadata\nconst originalItems = $items(\"Normalize Reel Metadata\");\n\nreturn $input.all().map((item, index) => {\n  const originalReel = originalItems[index] ? originalItems[index].json : {};\n  const srt = item.json.data || \"\";\n  let clean = \"\";\n  \n  if (originalReel.subtitle_url && typeof srt === 'string') {\n    clean = srt\n      .replace(/\\d+\\n\\d{2}:\\d{2}:\\d{2},\\d{3} --> \\d{2}:\\d{2}:\\d{2},\\d{3}/g, \"\")\n      .replace(/<[^>]*>/g, \"\")\n      .replace(/\\n\\s*\\n/g, \"\\n\")\n      .trim();\n  }\n\n  return {\n    json: {\n      ...originalReel,\n      transcript: clean || originalReel.prompt || \"\"\n    }\n  };\n});"
+        "jsCode": "// Only filter by dataType=post — pass everything else through\nconst items = $input.all();\nconst processed = [];\nconst seenIds = new Set();\n\nfor (const item of items) {\n  let data = item.json || {};\n  const records = Array.isArray(data) ? data : [data];\n\n  for (const post of records) {\n    if (!post) continue;\n    if (post.dataType !== 'post') continue;\n\n    const postId = post.id || post.postId || '';\n    if (seenIds.has(postId)) continue;\n    seenIds.add(postId);\n\n    const title = post.title || '';\n    const body = post.body || post.selftext || '';\n    const content = title + (body ? '\\n\\n' + body : '');\n    const upvotes = post.upVotes || post.ups || post.score || 0;\n    const comments = post.numberOfComments || post.num_comments || post.commentsCount || 0;\n    const category = post.category || post.communityName?.replace('r/', '') || 'tech';\n    const isLinkPost = post.url && !post.url.includes('reddit.com') && !post.url.includes('redd.it');\n    const redditThreadUrl = post.permalink\n      ? (post.permalink.startsWith('http') ? post.permalink : 'https://reddit.com' + post.permalink)\n      : (post.url || `https://reddit.com/r/${category}`);\n    const externalUrl = isLinkPost ? post.url : redditThreadUrl;\n\n    processed.push({\n      json: {\n        post_id: postId,\n        platform: 'Reddit',\n        title: title,\n        content: content.substring(0, 1500),\n        body: body.substring(0, 800),\n        url: redditThreadUrl,\n        external_url: externalUrl,\n        is_news_link: isLinkPost || false,\n        domain: post.domain || 'reddit.com',\n        likes: upvotes,\n        comments: comments,\n        views: upvotes + comments,\n        engagement_score: upvotes + (comments * 2),\n        engagement_rate: ((upvotes / Math.max(upvotes + comments, 1)) * 100).toFixed(2),\n        category: category,\n        community_name: post.communityName || 'Reddit',\n        author: post.username || post.author || 'anon',\n        created_at: post.createdAt || post.created_utc || new Date().toISOString(),\n        data_type: post.dataType\n      }\n    });\n  }\n}\n\nconsole.log(`✅ Found ${processed.length} posts (dataType=post only)`);\nreturn processed.length > 0 ? processed : [{ json: { _skip: true, platform: 'Reddit', reason: 'No posts found' } }];"
       },
+      "id": "node-5",
+      "name": "Parse Reddit Posts (News Only)",
       "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
-        3648,
-        -960
+        880,
+        400
       ],
-      "id": "clean-subtitles-id",
-      "name": "Clean Subtitles"
+      "onError": "continueRegular"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass through ALL items — no filtering\nreturn $input.all();"
+      },
+      "id": "node-6",
+      "name": "Remove Empty Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        400
+      ]
     },
     {
       "parameters": {
         "promptType": "define",
-        "text": "=# ScaleBuild AI - Viral Content Analyst\n\n## Viral DNA\n- **Platform**: {{ $json.platform || 'Instagram' }}\n- **Post ID**: {{ $json.content_code }}\n- **Caption/Content**: {{ $json.prompt }}\n- **Transcript (Clean)**: {{ $json.transcript || $json.prompt || 'No transcript available' }}\n- **Likes**: {{ $json.likes }}\n- **Comments**: {{ $json.comments }}\n- **Views**: {{ $json.views }}\n- **Shares**: {{ $json.shares }}\n- **Saves**: {{ $json.saves }}\n- **Engagement Rate**: {{ $json.engagement_rate }}%\n- **Trend Keyword That Found This**: {{ $json.trend_keyword }}\n\n## Task\nAnalyze this viral reel and reverse-engineer its viral chemistry.\nFocus on the STORY, NARRATIVE HOOK, and what made it spread.\nUse the cleaned transcript as the PRIMARY source for understanding the content.\n\nOutput ONLY a valid JSON object. No markdown. No extra text.\n\n{\n  \"viral_score\": 0,\n  \"engagement_score\": 0,\n  \"narrative_hook\": \"\",\n  \"content_structure\": \"\",\n  \"emotional_triggers\": \"\",\n  \"viral_elements\": \"\",\n  \"script_framework\": \"\",\n  \"hook_pattern\": \"\"\n}",
+        "text": "Analyze this Reddit post for viral potential and AI/ML/Tech relevance.\n\nTitle: {{ $json.title }}\nSubreddit: {{ $json.category }}\nUpvotes: {{ $json.likes }}\nComments: {{ $json.comments }}\nDomain: {{ $json.domain }}\nBody: {{ $json.body }}\n\nReturn ONLY a valid JSON object (no markdown, no backticks, no explanation) with these exact fields:\n{\"Viral_Score\": 0-100, \"Hook_Pattern\": \"pattern type\", \"Content_Structure\": \"breaking news or research paper or product launch or opinion or tutorial or controversy\", \"Emotional_Triggers\": \"emotions driving engagement\", \"Viral_Elements\": \"what makes it spread\", \"Script_Framework\": \"framework used\", \"is_ai_ml_tech\": true or false, \"news_relevance\": 0-100}",
         "batching": {
           "batchSize": 1
         }
       },
+      "id": "node-7",
+      "name": "Gemini Analyze News Post",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.7,
       "position": [
-        5040,
-        -960
+        1296,
+        400
       ],
-      "id": "analyze-viral-id",
-      "name": "Analyze Viral Content (Gemini)",
-      "settings": {
-        "errorHandling": "continueRegular"
-      },
-      "onError": "continue"
+      "onError": "continueRegular"
     },
     {
       "parameters": {
         "options": {}
       },
+      "id": "node-8",
+      "name": "Gemini Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
       "position": [
-        5104,
-        -752
+        1296,
+        560
       ],
-      "id": "gemini-model-id",
-      "name": "Gemini 2.0 Flash",
       "credentials": {
         "googlePalmApi": {
           "id": "igaSdthsiO1WHIs5",
@@ -718,32 +142,29 @@
     },
     {
       "parameters": {
-        "jsCode": "// Parse Gemini's JSON response and perfectly sync with clean metadata\nconst originalItems = $items(\"Clean Subtitles\");\n\nreturn $input.all().map((item, index) => {\n  const originalReel = originalItems[index] ? originalItems[index].json : {};\n  const rawText = item.json.text || item.json.output || '';\n  \n  let analysis = {};\n  try {\n    analysis = JSON.parse(rawText);\n  } catch(e) {\n    // Try to extract JSON block\n    const match = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (match) {\n      try { analysis = JSON.parse(match[0]); } catch(e2) {}\n    }\n  }\n\n  const toString = (val) => {\n    if (val === undefined || val === null) return '';\n    if (typeof val === 'object') return JSON.stringify(val);\n    return String(val);\n  };\n\n  return {\n    json: {\n      ...originalReel,\n      // Gemini Analysis\n      viral_score:        analysis.viral_score || 0,\n      engagement_score:   analysis.engagement_score || 0,\n      narrative_hook:     toString(analysis.narrative_hook || analysis.hook_pattern),\n      hook_pattern:       toString(analysis.hook_pattern   || analysis.narrative_hook),\n      content_structure:  toString(analysis.content_structure),\n      emotional_triggers: toString(analysis.emotional_triggers),\n      viral_elements:     toString(analysis.viral_elements),\n      script_framework:   toString(analysis.script_framework)\n    }\n  };\n});"
+        "jsCode": "// Build Airtable-ready output: original post data + Gemini analysis\n// Get original items from the Remove Empty Items node\nlet originals = [];\ntry { originals = $items('Remove Empty Items'); } catch(e) { originals = []; }\nconst geminiItems = $input.all();\nconst output = [];\n\nfor (let i = 0; i < geminiItems.length; i++) {\n  const gemini = geminiItems[i].json || {};\n  const orig = originals[i]?.json || {};\n\n  // Parse Gemini text response into JSON\n  const rawText = gemini.text || gemini.output || '{}';\n  let ai = {};\n  try {\n    ai = JSON.parse(rawText);\n  } catch (e) {\n    const match = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (match) {\n      try { ai = JSON.parse(match[0]); } catch (e2) {}\n    }\n  }\n\n  const s = (v) => (v === undefined || v === null) ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));\n  const title = orig.title || '';\n  const body = orig.body || '';\n\n  // Output fields matching Airtable Viral Content DB schema exactly\n  output.push({\n    json: {\n      Name: title.substring(0, 100),\n      Post_ID: orig.post_id || '',\n      Platform: orig.platform || 'Reddit',\n      Post_URL: orig.url || '',\n      Content: title + (body ? '\\n\\n' + body : ''),\n      Engagement_Score: orig.engagement_score || 0,\n      Likes_Reactions_Upvotes: orig.likes || 0,\n      Comments: orig.comments || 0,\n      Shares_Awards: 0,\n      Viral_Score: parseInt(ai.Viral_Score || ai.viral_score) || 0,\n      Hook_Pattern: s(ai.Hook_Pattern || ai.hook_pattern || ''),\n      Content_Structure: s(ai.Content_Structure || ai.content_structure || ''),\n      Emotional_Triggers: s(ai.Emotional_Triggers || ai.emotional_triggers || ''),\n      Viral_Elements: s(ai.Viral_Elements || ai.viral_elements || ''),\n      Script_Framework: s(ai.Script_Framework || ai.script_framework || ''),\n      Status: 'Generate Script',\n      Created_Date: new Date().toISOString().split('T')[0],\n      Script_Library: '',\n      Engagement_Rate: orig.engagement_rate || '0',\n      Followers: 0,\n      Saves: 0,\n      Shares: 0,\n      Impressions: orig.views || 0,\n      Clicks: 0,\n      Views: orig.views || 0,\n      Transcript: '',\n      // Keep these for the filter node\n      is_ai_ml_tech: ai.is_ai_ml_tech !== false,\n      news_relevance: parseInt(ai.news_relevance) || 0\n    }\n  });\n}\n\nconsole.log('Merged ' + output.length + ' posts with Gemini analysis for Airtable');\nreturn output.length > 0 ? output : [{ json: { _skip: true } }];"
       },
+      "id": "node-9",
+      "name": "Parse Gemini Results",
       "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
-        5344,
-        -960
-      ],
-      "id": "parse-gemini-id",
-      "name": "Parse Gemini Analysis"
+        1504,
+        400
+      ]
     },
     {
       "parameters": {
-        "content": "## STEP 8: STORE IN AIRTABLE\nStores all metadata + transcript +\nGemini analysis into Viral Content DB.\n\nAirtable Columns Used:\nName, Post_ID, Platform, Post_URL,\nContent, Engagement_Score, Likes,\nComments, Views, Shares, Saves,\nFollowers, Engagement_Rate, Viral_Score,\nHook_Pattern, Content_Structure,\nEmotional_Triggers, Viral_Elements,\nScript_Framework, Transcript,\nStatus, Created_Date",
-        "height": 320,
-        "width": 420,
-        "color": 2
+        "jsCode": "// Pass through posts that are AI/ML/Tech relevant\nreturn $input.all().filter(item => {\n  const d = item.json;\n  if (d._skip) return false;\n  return d.is_ai_ml_tech === true || d.news_relevance >= 50 || d.Viral_Score >= 30;\n});"
       },
-      "type": "n8n-nodes-base.stickyNote",
+      "id": "node-filter-relevant",
+      "name": "Filter Relevant News Only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
-        4256,
-        -1424
-      ],
-      "typeVersion": 1,
-      "id": "note-step8",
-      "name": "Note Step8"
+        1712,
+        400
+      ]
     },
     {
       "parameters": {
@@ -761,43 +182,46 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "Name": "={{ ($json.prompt || $json.content_code || 'Reel').substring(0, 50) }}",
-            "Post_ID": "={{ $json.content_code }}",
-            "Platform": "={{ $json.platform || 'Instagram' }}",
-            "Post_URL": "={{ $json.url }}",
-            "Content": "={{ $json.prompt }}",
-            "Engagement_Score": "={{ $json.engagement_score }}",
-            "Likes_Reactions_Upvotes": "={{ $json.likes }}",
-            "Comments": "={{ $json.comments }}",
-            "Views": "={{ $json.views }}",
-            "Shares": "={{ $json.shares }}",
-            "Shares_Awards": "={{ $json.shares }}",
-            "Saves": "={{ $json.saves }}",
-            "Followers": "={{ $json.followers }}",
-            "Engagement_Rate": "={{ $json.engagement_rate }}",
-            "Viral_Score": "={{ $json.viral_score }}",
-            "Hook_Pattern": "={{ $json.hook_pattern }}",
-            "Content_Structure": "={{ $json.content_structure }}",
-            "Emotional_Triggers": "={{ $json.emotional_triggers }}",
-            "Viral_Elements ": "={{ $json.viral_elements }}",
-            "Script_Framework": "={{ $json.script_framework }}",
-            "Transcript": "={{ $json.transcript }}",
-            "Status": "Analyzed",
-            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}"
+            "Name": "={{ $json.Name }}",
+            "Post_ID": "={{ $json.Post_ID }}",
+            "Platform": "={{ $json.Platform }}",
+            "Post_URL": "={{ $json.Post_URL }}",
+            "Content": "={{ $json.Content }}",
+            "Engagement_Score": "={{ $json.Engagement_Score }}",
+            "Likes_Reactions_Upvotes": "={{ $json.Likes_Reactions_Upvotes }}",
+            "Comments": "={{ $json.Comments }}",
+            "Shares_Awards": "={{ $json.Shares_Awards }}",
+            "Viral_Score": "={{ $json.Viral_Score }}",
+            "Hook_Pattern": "={{ $json.Hook_Pattern }}",
+            "Content_Structure": "={{ $json.Content_Structure }}",
+            "Emotional_Triggers": "={{ $json.Emotional_Triggers }}",
+            "Viral_Elements ": "={{ $json.Viral_Elements }}",
+            "Script_Framework": "={{ $json.Script_Framework }}",
+            "Status": "={{ $json.Status }}",
+            "Created_Date": "={{ $json.Created_Date }}",
+            "Script Library": "",
+            "Engagement_Rate": "={{ $json.Engagement_Rate }}",
+            "Followers": "=0",
+            "Saves": "=0",
+            "Shares": "=0",
+            "Impressions": "={{ $json.Impressions }}",
+            "Clicks": "=0",
+            "Views": "={{ $json.Views }}",
+            "Transcript": ""
           }
         },
         "options": {
           "typecast": true
         }
       },
+      "id": "node-10",
+      "name": "Store in Viral Content DB",
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2.1,
       "position": [
-        5600,
-        -960
+        1920,
+        400
       ],
-      "id": "store-viral-db-id",
-      "name": "Store in Viral Content DB",
       "credentials": {
         "airtableTokenApi": {
           "id": "h68hvDXg5Xigfz5P",
@@ -806,56 +230,35 @@
       }
     },
     {
-      "parameters": {
-        "content": "## 🎬 STAGE 3: VEO B-ROLL SCENE GENERATOR (STANDALONE)\n\n**What this does:**\n1. Pulls Viral DB rows (Status = Generate B-Roll)\n2. AI extracts: Character + Scene Setting + Emotion + Visual Action per row\n3. Pulls matched Script from Script Library → calculates timed segments\n4. Builds cinematic Veo prompts: Scene 1 (Hook timing) + Scene 2 (Main+CTA timing)\n5. Calls Veo 2.0 API → generates 2 video clips per record\n6. Polls Veo operation until complete\n7. Signs GCS URLs → stores Scene 1 URL + Scene 2 URL + timing back to Airtable Veo_Broll table\n\n**Airtable Tables needed:**\n- Viral_Content_DB → source of character/emotion/scene\n- Script_Library → source of transcript for timing calculation\n- Veo_Broll → output table for scene URLs + metadata\n\n**Env Vars needed:**\n- AIRTABLE_BASE_ID\n- AT_TABLE_VIRAL_DB\n- AT_TABLE_SCRIPT_LIB\n- AT_TABLE_VEO_BROLL\n- GOOGLE_ACCESS_TOKEN (from service account, refresh every 55 min)\n- GOOGLE_PROJECT_ID\n- GOOGLE_GCS_BUCKET (bucket where Veo stores output)\n- GEMINI_API_KEY (for scene extraction)",
-        "height": 500,
-        "width": 3000,
-        "color": 3
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [0, -400],
+      "parameters": {},
+      "id": "node-s2-trigger",
+      "name": "Manual Trigger (Stage 2)",
+      "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "id": "sticky-stage3-overview",
-      "name": "STAGE 3 Overview"
-    },
-    {
-      "parameters": {
-        "content": "## STEP 1: TRIGGER + FETCH DATA\nPull viral posts ready for B-Roll + their linked scripts",
-        "height": 200,
-        "width": 700,
-        "color": 5
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [0, 0],
-      "typeVersion": 1,
-      "id": "sticky-stage3-step1",
-      "name": "Step 1 Label"
+      "position": [
+        208,
+        800
+      ]
     },
     {
       "parameters": {
         "rule": {
-          "interval": [{ "field": "hours", "hoursInterval": 6 }]
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
         }
       },
-      "id": "trigger-schedule-s3",
-      "name": "Trigger: Every 6 Hours (S3)",
+      "id": "node-s2-schedule",
+      "name": "Schedule Trigger (Every 6h)",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [100, 200],
-      "notes": "Runs every 6 hours to process new Viral DB rows approved for B-Roll generation"
-    },
-    {
-      "parameters": {
-        "content": "## MANUAL TRIGGER\nClick 'Execute Workflow' button in n8n editor to manually start Stage 3 VEO B-Roll generation\n\nOR\n\nComments/Hotkey: Shift + Enter to manually execute",
-        "height": 100,
-        "width": 300,
-        "color": 9
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [100, 360],
-      "typeVersion": 1,
-      "id": "sticky-manual-trigger-s3",
-      "name": "Manual Trigger (S3)"
+      "position": [
+        208,
+        928
+      ]
     },
     {
       "parameters": {
@@ -870,51 +273,135 @@
           "value": "={{ $env.AT_TABLE_VIRAL_DB }}",
           "mode": "id"
         },
-        "filterByFormula": "{Status} = 'Generate Script'",
-        "returnAll": false,
-        "limit": 10,
         "options": {}
       },
-      "id": "fetch-viral-db-s3",
-      "name": "Fetch Viral DB (Generate B-Roll)",
+      "id": "node-s2-read-db",
+      "name": "Read Viral Content DB",
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2.1,
-      "position": [380, 280],
-      "notes": "Set Status = 'Generate Script' in Viral DB to queue a record for processing"
+      "position": [
+        448,
+        864
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
     },
     {
       "parameters": {
-        "jsCode": "// STEP 1B: For each viral DB row, fetch its linked Script from Script Library\nconst items = $input.all();\nconst output = [];\n\nfor (const item of items) {\n  const f = item.json.fields || item.json;\n  const recordId = item.json.id;\n  const NameId = f.Name; \n  const hookPattern      = f.Hook_Pattern || f.Narrative_Hook || '';\n  const contentStructure = f.Content_Structure || f.Core_Story || '';\n  const emotionalTriggers = f.Emotional_Triggers || '';\n  const viralElements    = f['Viral_Elements '] || f.Viral_Elements || '';\n  const scriptFramework  = f.Script_Framework || '';\n  const viralScore       = f.Viral_Score || 0;\n  const platform         = f.Platform || 'TikTok';\n  const rawContent       = f.Content || '';\n\n  const scriptLinks = f.Script_Library || [];\n  const linkedScriptId = Array.isArray(scriptLinks) ? scriptLinks[0] : scriptLinks;\n\n  const directTranscript = f.Transcript || '';\n\n  output.push({\n    json: {\n      viral_record_id: recordId,\n      hook_pattern: hookPattern,\n      content_structure: contentStructure,\n      emotional_triggers: emotionalTriggers,\n      viral_elements: viralElements,\n      script_framework: scriptFramework,\n      viral_score: viralScore,\n      platform: platform,\n      raw_content: rawContent,\n      linked_script_id: linkedScriptId || null,\n  Name:NameId , \n    direct_transcript: directTranscript\n    }\n  });\n}\n\nreturn output;"
+        "jsCode": "// Filter records with Status='Generate Script' and limit to 10\nreturn $input.all().filter(item => {\n  const status = item.json.Status || '';\n  return status === 'Generate Script';\n}).slice(0, 10);"
       },
+      "id": "node-s2-filter",
+      "name": "Filter Unprocessed Posts",
       "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [600, 280],
-      "id": "extract-viral-fields-s3",
-      "name": "Extract Viral DB Fields"
+      "typeVersion": 2,
+      "position": [
+        656,
+        864
+      ]
     },
     {
       "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": false, "typeValidation": "loose" },
-          "conditions": [{
-            "id": "has-script-link",
-            "leftValue": "={{ $json.Name}}",
-            "rightValue": "",
-            "operator": { "type": "string", "operation": "notEmpty" }
-          }],
-          "combinator": "and"
-        },
+        "promptType": "define",
+        "text": "Context and Author Profile:\nUjjwal Roy is the CEO of ScaleBuild AI, a custom AI software development company specializing in workflow automation, customer-facing tools, and AI model development. He also serves as CEO of Seethos AI (computer vision for manufacturing), Chair of IEEE Young Professionals, and founding president of the World AI Alliance. His background spans engineering roles at Intel, Micron, and IBM, as well as Wall Street finance. He is 32 years old.\n\nTask:\nRewrite the following news content as an original thought leadership post for Ujjwal's social media channels (primarily LinkedIn).\n\nTone and Voice Guidelines:\n- Direct and to the point. No fluff, no filler, no softening language. Say what you mean.\n- Position Ujjwal as a credible, forward-thinking voice in the AI industry who interprets what news means for the broader landscape\n- Reflect the perspective of a hands-on AI CEO who builds real products, not a passive observer\n- Confident and opinionated, but grounded with reasoning or real-world parallels\n- Conversational and punchy, not corporate or formal. Write like a 32-year-old founder talking to peers.\n- Avoid generic AI hype or surface-level commentary. Go deeper with strategic insight or contrarian angles.\n- The output must read like a real human wrote it. Use natural sentence rhythms, occasional imperfect phrasing, and varied sentence lengths. Avoid patterns that feel templated, overly polished, or AI-generated. No perfectly balanced sentence structures. No formulaic transitions. Write the way a smart, busy founder actually talks online.\n\nStructure and Length (STRICT):\n- Maximum two short paragraphs. No exceptions. Each paragraph should be 2 to 4 sentences.\n- Total word count: 50 to 100 words. Treat this as a hard ceiling.\n- The opening sentence must be a strong, creative hook. Not generic, not clickbait. It should be a sharp, original observation or a surprising reframe that makes people stop scrolling. Think of the kind of opener that makes someone say I never thought of it that way.\n- Close with a perspective, prediction, or question that invites engagement\n- Distill the news down to the single most important insight and build the entire post around that one idea. Cut everything else ruthlessly.\n- No bullet points, no numbered lists, no headers\n\nFormatting Rules:\n- Never use em dashes anywhere in the output. Use commas, periods, parentheses, or restructure the sentence instead.\n- No ellipses for dramatic effect\n- No hashtags unless specifically requested\n\nWhat to Avoid:\n- Do not summarize the full news story. Extract only the sharpest takeaway.\n- Do not use buzzwords without substance (e.g., revolutionary, game-changing)\n- Do not write in third person. Write as Ujjwal in first person.\n- Do not pad with filler sentences or repeat the same idea in different words\n- Do not use phrases that are commonly associated with AI-generated content (e.g., Lets dive in, Heres the thing, In todays rapidly evolving landscape, Its not just about X its about Y)\n- Do not open with a question as the hook. Lead with a statement.\n\nNews Content to Rewrite:\nTitle: {{ $json.Name }}\nContent: {{ $json.Content }}\nViral Score: {{ $json.Viral_Score }}\nHook Pattern: {{ $json.Hook_Pattern }}\nEmotional Triggers: {{ $json.Emotional_Triggers }}\nViral Elements: {{ $json.Viral_Elements }}\nScript Framework: {{ $json.Script_Framework }}\nEngagement Score: {{ $json.Engagement_Score }}\n\nReturn ONLY valid JSON (no markdown, no backticks, no explanation):\n{\"Script_Title\": \"LinkedIn - [Topic]\", \"Hook\": \"Sharp opening statement\", \"Main_Content\": \"2 paragraphs max 50-100 words\", \"CTA\": \"Perspective prediction or question\", \"Target_Platforms\": \"LinkedIn\", \"Tone\": \"Professional, strategic, insider perspective\", \"Hashtags\": \"\"}",
+        "batching": {
+          "batchSize": 1
+        }
+      },
+      "id": "node-s2-gemini-prompt",
+      "name": "Gemini Generate Social Scripts",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        864,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Context and Author Profile:\nUjjwal Roy is the CEO of ScaleBuild AI, a custom AI software development company specializing in workflow automation, customer-facing tools, and AI model development. He also serves as CEO of Seethos AI (computer vision for manufacturing), Chair of IEEE Young Professionals, and founding president of the World AI Alliance. His background spans engineering roles at Intel, Micron, and IBM, as well as Wall Street finance. He is 32 years old.\n\nTask:\nRewrite the following news content as an original thought leadership post for Ujjwal's social media channels (primarily Twitter/X).\n\nTone and Voice Guidelines:\n- Direct and to the point. No fluff, no filler, no softening language. Say what you mean.\n- Position Ujjwal as a credible, forward-thinking voice in the AI industry who interprets what news means for the broader landscape\n- Reflect the perspective of a hands-on AI CEO who builds real products, not a passive observer\n- Confident and opinionated, but grounded with reasoning or real-world parallels\n- Conversational and punchy, not corporate or formal. Write like a 32-year-old founder talking to peers.\n- Avoid generic AI hype or surface-level commentary. Go deeper with strategic insight or contrarian angles.\n- The output must read like a real human wrote it. Use natural sentence rhythms, occasional imperfect phrasing, and varied sentence lengths. Avoid patterns that feel templated, overly polished, or AI-generated. No perfectly balanced sentence structures. No formulaic transitions. Write the way a smart, busy founder actually talks online.\n\nStructure and Length (STRICT):\n- Maximum two short paragraphs. No exceptions. Each paragraph should be 2 to 4 sentences.\n- Total word count: 50 to 100 words. Treat this as a hard ceiling.\n- The opening sentence must be a strong, creative hook. Not generic, not clickbait. It should be a sharp, original observation or a surprising reframe that makes people stop scrolling. Think of the kind of opener that makes someone say I never thought of it that way.\n- Close with a perspective, prediction, or question that invites engagement\n- Distill the news down to the single most important insight and build the entire post around that one idea. Cut everything else ruthlessly.\n- No bullet points, no numbered lists, no headers\n\nFormatting Rules:\n- Never use em dashes anywhere in the output. Use commas, periods, parentheses, or restructure the sentence instead.\n- No ellipses for dramatic effect\n- No hashtags unless specifically requested\n\nWhat to Avoid:\n- Do not summarize the full news story. Extract only the sharpest takeaway.\n- Do not use buzzwords without substance (e.g., revolutionary, game-changing)\n- Do not write in third person. Write as Ujjwal in first person.\n- Do not pad with filler sentences or repeat the same idea in different words\n- Do not use phrases that are commonly associated with AI-generated content (e.g., Lets dive in, Heres the thing, In todays rapidly evolving landscape, Its not just about X its about Y)\n- Do not open with a question as the hook. Lead with a statement.\n\nNews Content to Rewrite:\nTitle: {{ $json.Name }}\nContent: {{ $json.Content }}\nViral Score: {{ $json.Viral_Score }}\nHook Pattern: {{ $json.Hook_Pattern }}\nEmotional Triggers: {{ $json.Emotional_Triggers }}\nViral Elements: {{ $json.Viral_Elements }}\nScript Framework: {{ $json.Script_Framework }}\nEngagement Score: {{ $json.Engagement_Score }}\n\nReturn ONLY valid JSON (no markdown, no backticks, no explanation):\n{\"Script_Title\": \"Twitter/X - [Topic]\", \"Hook\": \"Sharp opening statement\", \"Main_Content\": \"2 paragraphs max 50-100 words\", \"CTA\": \"Perspective prediction or question\", \"Target_Platforms\": \"Twitter/X\", \"Tone\": \"Direct, opinionated, insider perspective\", \"Hashtags\": \"\"}",
+        "batching": {
+          "batchSize": 1
+        }
+      },
+      "id": "node-s2-gemini-prompt-twitter",
+      "name": "Gemini Generate Script - Twitter/X",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        864,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Context and Author Profile:\nUjjwal Roy is the CEO of ScaleBuild AI, a custom AI software development company specializing in workflow automation, customer-facing tools, and AI model development. He also serves as CEO of Seethos AI (computer vision for manufacturing), Chair of IEEE Young Professionals, and founding president of the World AI Alliance. His background spans engineering roles at Intel, Micron, and IBM, as well as Wall Street finance. He is 32 years old.\n\nTask:\nRewrite the following news content as an original thought leadership post for Ujjwal's social media channels (primarily Facebook).\n\nTone and Voice Guidelines:\n- Direct and to the point. No fluff, no filler, no softening language. Say what you mean.\n- Position Ujjwal as a credible, forward-thinking voice in the AI industry who interprets what news means for the broader landscape\n- Reflect the perspective of a hands-on AI CEO who builds real products, not a passive observer\n- Confident and opinionated, but grounded with reasoning or real-world parallels\n- Conversational and punchy, not corporate or formal. Write like a 32-year-old founder talking to peers.\n- Avoid generic AI hype or surface-level commentary. Go deeper with strategic insight or contrarian angles.\n- The output must read like a real human wrote it. Use natural sentence rhythms, occasional imperfect phrasing, and varied sentence lengths. Avoid patterns that feel templated, overly polished, or AI-generated. No perfectly balanced sentence structures. No formulaic transitions. Write the way a smart, busy founder actually talks online.\n\nStructure and Length (STRICT):\n- Maximum two short paragraphs. No exceptions. Each paragraph should be 2 to 4 sentences.\n- Total word count: 50 to 100 words. Treat this as a hard ceiling.\n- The opening sentence must be a strong, creative hook. Not generic, not clickbait. It should be a sharp, original observation or a surprising reframe that makes people stop scrolling. Think of the kind of opener that makes someone say I never thought of it that way.\n- Close with a perspective, prediction, or question that invites engagement\n- Distill the news down to the single most important insight and build the entire post around that one idea. Cut everything else ruthlessly.\n- No bullet points, no numbered lists, no headers\n\nFormatting Rules:\n- Never use em dashes anywhere in the output. Use commas, periods, parentheses, or restructure the sentence instead.\n- No ellipses for dramatic effect\n- No hashtags unless specifically requested\n\nWhat to Avoid:\n- Do not summarize the full news story. Extract only the sharpest takeaway.\n- Do not use buzzwords without substance (e.g., revolutionary, game-changing)\n- Do not write in third person. Write as Ujjwal in first person.\n- Do not pad with filler sentences or repeat the same idea in different words\n- Do not use phrases that are commonly associated with AI-generated content (e.g., Lets dive in, Heres the thing, In todays rapidly evolving landscape, Its not just about X its about Y)\n- Do not open with a question as the hook. Lead with a statement.\n\nNews Content to Rewrite:\nTitle: {{ $json.Name }}\nContent: {{ $json.Content }}\nViral Score: {{ $json.Viral_Score }}\nHook Pattern: {{ $json.Hook_Pattern }}\nEmotional Triggers: {{ $json.Emotional_Triggers }}\nViral Elements: {{ $json.Viral_Elements }}\nScript Framework: {{ $json.Script_Framework }}\nEngagement Score: {{ $json.Engagement_Score }}\n\nReturn ONLY valid JSON (no markdown, no backticks, no explanation):\n{\"Script_Title\": \"Facebook - [Topic]\", \"Hook\": \"Sharp opening statement\", \"Main_Content\": \"2 paragraphs max 50-100 words\", \"CTA\": \"Perspective prediction or question\", \"Target_Platforms\": \"Facebook\", \"Tone\": \"Accessible, direct, hands-on founder\", \"Hashtags\": \"\"}",
+        "batching": {
+          "batchSize": 1
+        }
+      },
+      "id": "node-s2-gemini-prompt-facebook",
+      "name": "Gemini Generate Script - Facebook",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        864,
+        944
+      ]
+    },
+    {
+      "parameters": {
         "options": {}
       },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [820, 280],
-      "id": "has-linked-script-s3",
-      "name": "Has Linked Script?"
+      "id": "node-s2-gemini-model",
+      "name": "Gemini Model (Stage 2)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        864,
+        1024
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "igaSdthsiO1WHIs5",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
     },
     {
       "parameters": {
-        "operation": "Get",
+        "jsCode": "// Parse Gemini outputs from 3 parallel platforms (LinkedIn, Twitter/X, Facebook)\n// ✅ DEBUG: Log all incoming data to diagnose platform issues\nconst geminiItems = $input.all();\nconsole.log(`📥 PARSE NODE: Received ${geminiItems.length} items from Gemini nodes`);\n\n// Log each platform's data\ngeminiItems.forEach((item, idx) => {\n  const platform = item.json?.Target_Platforms || item.json?.platform || 'Unknown';\n  const hasText = !!item.json?.text;\n  const hasTitle = !!item.json?.Script_Title;\n  console.log(`  [${idx}] Platform: ${platform} | Has text: ${hasText} | Has title: ${hasTitle}`);\n});\n\nconst output = [];\n\nfor (const item of geminiItems) {\n  let rawJson = item.json || {};\n  \n  // If Gemini returned as 'text' field, parse JSON from it\n  if (rawJson.text && typeof rawJson.text === 'string') {\n    try {\n      rawJson = JSON.parse(rawJson.text);\n    } catch (e) {\n      // Try to extract JSON object from text\n      const match = rawJson.text.match(/\\{[\\s\\S]*\\}/);\n      if (match) {\n        try { rawJson = JSON.parse(match[0]); } catch (e2) {\n          console.log('❌ Failed to parse Gemini response:', rawJson.text.substring(0, 200));\n          continue;\n        }\n      } else {\n        console.log('❌ No JSON found in Gemini text response');\n        continue;\n      }\n    }\n  }\n  \n  // If somehow it's still an array, take first element\n  if (Array.isArray(rawJson)) rawJson = rawJson[0] || {};\n  \n  const s = (val) => (val === undefined || val === null) ? '' : (typeof val === 'object' ? JSON.stringify(val) : String(val));\n  \n  output.push({\n    json: {\n      // Script Library fields\n      Name: s(rawJson.Script_Title || ''),\n      Source_Content_ID: '',\n      Script_Title: s(rawJson.Script_Title || ''),\n      Hook: s(rawJson.Hook || ''),\n      Main_Content: s(rawJson.Main_Content || ''),\n      CTA: s(rawJson.CTA || ''),\n      Visual_Cues: s(rawJson.Visual_Cues || ''),\n      Tone: s(rawJson.Tone || ''),\n      Hashtags: s(rawJson.Hashtags || ''),\n      Estimated_Duration: s(rawJson.Estimated_Duration || ''),\n      Target_Platforms: s(rawJson.Target_Platforms || ''),\n      Status: 'Draft',\n      Feedback: '',\n      Created_Date: new Date().toISOString(),\n      Video_Production_Queue: 'pending',\n      Video_RENDERS: ''\n    }\n  });\n}\n\nconsole.log(`✅ Generated ${output.length} social media scripts from all platforms`);\nif (output.length !== geminiItems.length) {\n  console.log(`⚠️  WARNING: Expected ${geminiItems.length} outputs but got ${output.length}`);\n}\nreturn output.length > 0 ? output : [{ json: { _skip: true, reason: 'No scripts generated' } }];"
+      },
+      "id": "node-s2-parse-scripts",
+      "name": "Parse Gemini Scripts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Remove failed/empty script records\nreturn $input.all().filter(item => {\n  return !item.json._skip && item.json.Script_Title;\n});"
+      },
+      "id": "node-s2-remove-empty",
+      "name": "Remove Empty Scripts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
         "base": {
           "__rl": true,
           "value": "={{ $env.AIRTABLE_BASE_ID }}",
@@ -925,473 +412,355 @@
           "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}",
           "mode": "id"
         },
-        "id": "={{ $json.linked_script_id }}"
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $json.Name }}",
+            "Source_Content_ID": "={{ $json.Source_Content_ID }}",
+            "Script_Title": "={{ $json.Script_Title }}",
+            "Hook": "={{ $json.Hook }}",
+            "Main_Content": "={{ $json.Main_Content }}",
+            "CTA ": "={{ $json.CTA }}",
+            "Visual_Cues": "={{ $json.Visual_Cues }}",
+            "Tone": "={{ $json.Tone }}",
+            "Hashtags": "={{ $json.Hashtags }}",
+            "Estimated_Duration": "={{ $json.Estimated_Duration }}",
+            "Status": "Draft",
+            "Feedback": "",
+            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}",
+            "Video Production Queue": "pending",
+            "Video RENDERS": "",
+            "Target_Platforms": "={{ $json.Target_Platforms }}"
+          }
+        },
+        "options": {
+          "typecast": true
+        }
       },
-      "id": "fetch-linked-script-s3",
-      "name": "Fetch Linked Script",
+      "id": "node-s2-store-scripts",
+      "name": "Store in Script Library",
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2.1,
-      "position": [1040, 200],
-      "notes": "Fetches the actual script record to get Hook, Main_Content, CTA, Transcript"
+      "position": [
+        1488,
+        864
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "node-s3-trigger",
+      "name": "Manual Trigger (Stage 3)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        1552
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const viralData = $('Has Linked Script?').item.json;\nconst scriptFields = ($input.item.json.fields || $input.item.json);\n\nconst hook        = scriptFields.Hook || '';\nconst main        = scriptFields.Main_Content || '';\nconst cta         = scriptFields['CTA '] || scriptFields.CTA || '';\nconst transcript  = scriptFields.Transcript || [hook, main, cta].filter(Boolean).join(' ');\n\nreturn [{ json: { ...viralData, hook, main_content: main, cta, transcript } }];"
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 4
+            }
+          ]
+        }
       },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [1260, 200],
-      "id": "merge-script-linked-s3",
-      "name": "Merge: Viral + Linked Script"
+      "id": "node-s3-schedule",
+      "name": "Schedule Trigger (Every 4h)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        32,
+        1696
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const d = $input.item.json;\nconst transcript = d.direct_transcript || d.raw_content || '';\nconst fallback = d.hook_pattern || 'Watch this incredible moment';\n\nreturn [{ json: {\n  ...d,\n  hook: d.hook_pattern || fallback,\n  main_content: d.content_structure || '',\n  cta: 'Comment below',\n  transcript: transcript || fallback\n} }];"
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}",
+          "mode": "id"
+        },
+        "options": {}
       },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [1040, 360],
-      "id": "fallback-no-script-s3",
-      "name": "Fallback: Use Viral Content Direct"
+      "id": "node-s3-read-approved",
+      "name": "Read Approved Scripts",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        256,
+        1616
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
     },
     {
-      "parameters": { "mode": "append" },
-      "id": "merge-both-paths-s3",
-      "name": "Merge Both Paths",
-      "type": "n8n-nodes-base.merge",
+      "parameters": {
+        "jsCode": "// Filter for Status = 'Approved' and parse Target_Platforms (multi-select field)\nconst approved = $input.all().filter(item => {\n  const status = item.json.Status || '';\n  return status.trim() === 'Approved';\n});\n\nconsole.log(`✅ Found ${approved.length} approved scripts`);\n\nreturn approved.map((item, idx) => {\n  // Target_Platforms can be:\n  // 1. Array of strings: ['LinkedIn', 'Twitter/X']\n  // 2. Array of objects: [{id, email, name: 'LinkedIn'}, ...]\n  // 3. String (comma-separated): 'LinkedIn, Twitter/X'\n  let platformData = item.json['Target_Platforms '] || [];\n  \n  let platforms = [];\n  if (Array.isArray(platformData)) {\n    // Handle both array of strings and array of objects\n    platforms = platformData.map(p => {\n      if (typeof p === 'string') return p;\n      if (typeof p === 'object' && p.name) return p.name;\n      return p;\n    }).filter(p => p);\n  } else if (typeof platformData === 'string') {\n    // Handle comma-separated string\n    platforms = platformData.split(',').map(p => p.trim()).filter(p => p);\n  }\n  \n  console.log(`  Script: ${item.json.Script_Title} | Platforms: [${platforms.join(', ')}]`);\n  \n  return {\n    json: {\n      ...item.json,\n      _index: idx,\n      _platforms: platforms\n    }\n  };\n});"
+      },
+      "id": "node-s3-filter-approved",
+      "name": "Filter Approved Status",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1480, 280]
+      "position": [
+        400,
+        1616
+      ]
     },
     {
       "parameters": {
-        "content": "## STEP 2: AI SCENE EXTRACTION + TIMING\nGemini extracts cinematic scene DNA and calculates durations",
-        "height": 200,
-        "width": 700,
-        "color": 6
+        "jsCode": "// Split approved scripts by platform for parallel posting\nconst output = [];\nconst platformMap = {\n  'linkedin': 'linkedin',\n  'twitter/x': 'twitter/x',\n  'twitter': 'twitter/x',\n  'x': 'twitter/x',\n  'facebook': 'facebook',\n  'reddit': 'reddit'\n};\n\nfor (const item of $input.all()) {\n  const platforms = item.json._platforms || [];\n  console.log(`📋 Processing: ${item.json.Script_Title} | Platforms: [${platforms.join(', ')}]`);\n  \n  // If no specific platforms, skip with warning\n  if (!platforms.length) {\n    console.log(`⚠️  No platforms found for ${item.json.Script_Title}`);\n    continue;\n  }\n  \n  // Create one output per platform this script targets\n  for (const platform of platforms) {\n    const normalizedPlatform = platformMap[platform.toLowerCase()] || platform.toLowerCase();\n    output.push({\n      json: {\n        ...item.json,\n        _targetPlatform: normalizedPlatform\n      }\n    });\n  }\n}\n\nconsole.log(`📤 TOTAL: Routing ${output.length} scripts to ${new Set(output.map(o => o.json._targetPlatform)).size} platforms`);\noutput.forEach(o => {\n  console.log(`  → ${o.json.Script_Title} → ${o.json._targetPlatform}`);\n});\n\nif (output.length === 0) {\n  console.log(`❌ No scripts to route!`);\n}\nreturn output.length > 0 ? output : [{ json: { _skip: true } }];"
       },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [1600, 0],
-      "typeVersion": 1,
-      "id": "sticky-stage3-step2",
-      "name": "Step 2 Label"
-    },
-    {
-      "parameters": {
-        "jsCode": "const d = $input.item.json;\nconst wordsPerSec = 2.3;\nconst hookWords = (d.hook || '').split(/\\s+/).filter(Boolean).length;\nconst mainWords = (d.main_content || '').split(/\\s+/).filter(Boolean).length;\nconst ctaWords  = (d.cta || '').split(/\\s+/).filter(Boolean).length;\nconst clamp = (val, min, max) => Math.min(max, Math.max(min, val));\nconst scene1Duration = clamp(Math.round(hookWords / wordsPerSec), 5, 8);\nconst scene2Duration = clamp(Math.round((mainWords + ctaWords) / wordsPerSec), 5, 8);\n\nreturn [{ json: {\n  ...d,\n  scene1_duration: scene1Duration,\n  scene2_duration: scene2Duration,\n  hook_word_count: hookWords,\n  main_word_count: mainWords + ctaWords,\n  total_duration: scene1Duration + scene2Duration\n} }];"
-      },
+      "id": "node-s3-route-platforms",
+      "name": "Route by Platform",
       "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [1700, 280],
-      "id": "calculate-timings-s3",
-      "name": "Calculate Scene Timings"
+      "typeVersion": 2,
+      "position": [
+        528,
+        1616
+      ]
     },
     {
       "parameters": {
-        "promptType": "define",
-        "text": "=# CINEMATIC SCENE EXTRACTOR FOR VEO B-ROLL\n\nYou are a cinematic director. Extract EXACT visual scene DNA from viral content and build two precise filmable video prompts for Google Veo 2.0.\n\n## VIRAL CONTENT DATA\n- **Hook Pattern**: {{ $json.hook_pattern }}\n- **Core Story**: {{ $json.content_structure }}\n- **Emotional Triggers**: {{ $json.emotional_triggers }}\n- **Viral Elements**: {{ $json.viral_elements }}\n- **Script Hook**: {{ $json.hook }}\n- **Script Main**: {{ $json.main_content }}\n- **Script CTA**: {{ $json.cta }}\n- **Scene 1 Duration**: {{ $json.scene1_duration }} seconds\n- **Scene 2 Duration**: {{ $json.scene2_duration }} seconds\n\n## YOUR JOB\nBuild scenes that FEEL the same emotionally as the viral content even if words don't literally match.\nExample: Viral = 'crying monkey alone' + Script = 'Nobody believed he could alone' → Scene 1: Close-up lone monkey, golden hour, tears, slow motion, emotional\n\n## RULES\n- EXTREMELY specific: character + action + emotion + setting + lighting + camera + style\n- NO text, subtitles, logos\n- Filmable, photorealistic, cinematic\n- Scene 1 = Hook energy (attention-grabbing)\n- Scene 2 = Resolution (transformation, CTA energy)\n- Max 80 words per prompt\n\n## OUTPUT (ONLY JSON, no markdown)\n{\n  \"character\": \"primary subject\",\n  \"emotion\": \"core emotion\",\n  \"scene_setting\": \"environment\",\n  \"visual_metaphor\": \"emotional connection to script\",\n  \"scene1_prompt\": \"[Veo prompt for Scene 1 Hook, {{ $json.scene1_duration }}s]\",\n  \"scene1_camera\": \"close-up\",\n  \"scene1_mood\": \"emotional/tense\",\n  \"scene2_prompt\": \"[Veo prompt for Scene 2 Resolution, {{ $json.scene2_duration }}s]\",\n  \"scene2_camera\": \"wide shot\",\n  \"scene2_mood\": \"triumphant/hopeful\",\n  \"style_tags\": \"cinematic, 4K, golden hour, photorealistic\"\n}",
-        "hasOutputParser": false,
-        "batching": { "batchSize": 1 }
+        "jsCode": "// Debug: Check what's being passed to Switch\nconst items = $input.all();\nconsole.log(`🔀 SWITCH DEBUG: Received ${items.length} items`);\nitems.forEach((item, idx) => {\n  console.log(`  [${idx}] _targetPlatform = '${item.json._targetPlatform}' (type: ${typeof item.json._targetPlatform})`);\n});\nreturn items;"
       },
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.7,
-      "position": [1900, 280],
-      "id": "ai-scene-extractor-s3",
-      "name": "AI: Extract Scene DNA + Build Veo Prompts",
-      "onError": "continue",
-      "settings": { "errorHandling": "continueRegular" }
-    },
-    {
-      "parameters": { "model": "gemini-2.0-flash-exp", "options": {} },
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
-      "typeVersion": 1,
-      "position": [1900, 460],
-      "id": "gemini-scene-s3",
-      "name": "Gemini 2.0 (Scene)"
-    },
-    {
-      "parameters": {
-        "jsCode": "const item = $input.first();\nconst rawText = item.json.text || '';\nlet timingData = {};\ntry { timingData = $('Calculate Scene Timings').item?.json || {}; } catch(e) {}\nlet parsed = {};\ntry {\n  parsed = JSON.parse(rawText);\n} catch (e) {\n  try {\n    const match = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (match) parsed = JSON.parse(match[0]);\n  } catch (e2) {\n    parsed = {\n      character: 'subject',\n      emotion: 'emotional',\n      scene_setting: 'cinematic environment',\n      visual_metaphor: 'visual story',\n      scene1_prompt: `Cinematic close-up, emotional moment, ${timingData.hook || 'compelling scene'}, 4K, slow motion, golden hour`,\n      scene1_camera: 'close-up',\n      scene1_mood: 'emotional',\n      scene2_prompt: `Wide cinematic shot, triumphant resolution, inspiring, 4K, professional lighting, smooth camera movement`,\n      scene2_camera: 'wide shot',\n      scene2_mood: 'triumphant',\n      style_tags: 'cinematic, 4K, photorealistic'\n    };\n  }\n}\nreturn [{ json: {\n  ...timingData,\n  ...parsed,\n  scene1_duration_final: timingData.scene1_duration || 5,\n  scene2_duration_final: timingData.scene2_duration || 8\n} }];"
-      },
+      "id": "node-s3-debug-switch",
+      "name": "DEBUG: Before Switch",
       "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [2120, 280],
-      "id": "parse-scene-ai-s3",
-      "name": "Parse Scene AI Output"
-    },
-    {
-      "parameters": {
-        "content": "## STEP 3: VEO API CALLS\nGenerate Scene 1 and Scene 2 via Google Veo 2.0",
-        "height": 200,
-        "width": 700,
-        "color": 4
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [2300, 0],
-      "typeVersion": 1,
-      "id": "sticky-stage3-step3",
-      "name": "Step 3 Label"
+      "typeVersion": 2,
+      "position": [
+        688,
+        1616
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://oauth2.googleapis.com/token",
-        "authentication": "none",
+        "url": "=https://api.linkedin.com/v2/ugcPosts",
+        "authentication": "oAuth2",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
-        "contentType": "form",
         "bodyParameters": {
           "parameters": [
-            { "name": "client_id", "value": "={{ $env.GOOGLE_CLIENT_ID }}" },
-            { "name": "client_secret", "value": "={{ $env.GOOGLE_CLIENT_SECRET }}" },
-            { "name": "refresh_token", "value": "={{ $env.GOOGLE_REFRESH_TOKEN }}" },
-            { "name": "grant_type", "value": "refresh_token" }
+            {}
           ]
         },
-        "options": { "timeout": 10000 }
+        "options": {}
       },
+      "id": "node-s3-post-linkedin",
+      "name": "Post to LinkedIn",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [2350, 90],
-      "id": "refresh-google-token-s3",
-      "name": "Refresh Google Access Token",
-      "onError": "stopWorkflow"
-    },
-    {
-      "parameters": {
-        "jsCode": "const tokenResponse = $input.item.json;\nif (!tokenResponse.access_token) {\n  throw new Error('Failed to refresh Google token: ' + (tokenResponse.error || 'No access_token in response'));\n}\nconst prevData = $('Parse Scene AI Output').item.json;\nreturn [{ json: { ...prevData, access_token: tokenResponse.access_token, token_expires_in: tokenResponse.expires_in } }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [2350, 280],
-      "id": "extract-access-token-s3",
-      "name": "Extract Access Token"
+      "typeVersion": 4.1,
+      "position": [
+        1328,
+        2000
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://us-central1-aiplatform.googleapis.com/v1/projects/{{ $env.GOOGLE_PROJECT_ID }}/locations/us-central1/publishers/google/models/veo-2.0-generate-001:predictLongRunning",
-        "authentication": "none",
-        "sendHeaders": true,
-        "headerParameters": {
+        "url": "=https://graph.facebook.com/v20.0/{{ $env.FACEBOOK_PAGE_ID }}/feed",
+        "sendBody": true,
+        "bodyParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $('Extract Access Token').item.json.access_token }}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "message",
+              "value": "={{ $json.Hook }}\\n\\n{{ $json.Main_Content }}\\n\\n{{ $json.CTA }}"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $env.FACEBOOK_PAGE_ACCESS_TOKEN }}"
+            }
           ]
         },
-        "sendBody": true,
-        "contentType": "json",
-        "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"instances\": [{ \"prompt\": $json.scene1_prompt }],\n  \"parameters\": {\n    \"aspectRatio\": \"9:16\",\n    \"videoLength\": $json.scene1_duration_final.toString() + \"s\",\n    \"outputOptions\": { \"fps\": 24, \"resolution\": \"1080p\" },\n    \"storageUri\": \"gs://\" + $env.GOOGLE_GCS_BUCKET + \"/veo-broll/\" + $json.viral_record_id + \"/scene1/\",\n    \"sampleCount\": 1,\n    \"durationSeconds\": $json.scene1_duration_final,\n    \"enhancePrompt\": true,\n    \"generateAudio\": false\n  }\n} }}",
-        "options": { "timeout": 30000 }
+        "options": {}
       },
+      "id": "node-s3-post-facebook",
+      "name": "Post to Facebook",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [2400, 200],
-      "id": "veo-scene1-generate-s3",
-      "name": "Veo: Generate Scene 1 (Hook)"
-    },
-    {
-      "parameters": {
-        "jsCode": "const veoResponse = $input.item.json;\nconst prevData = $('Parse Scene AI Output').item.json;\nconst operationName = veoResponse.name || veoResponse.operationName || '';\nif (!operationName) throw new Error('Veo Scene 1 did not return operationName');\nconst operationId = operationName.includes('/') ? operationName.split('/').pop() || operationName : operationName;\nconst fullOpPath = \"projects/\" + $env.GOOGLE_PROJECT_ID + \"/locations/us-central1/operations/\" + operationId;\nreturn [{ json: { ...prevData, scene1_operation: fullOpPath, scene1_submitted: true } }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [2600, 200],
-      "id": "store-scene1-op-s3",
-      "name": "Store Scene 1 Operation Name"
+      "typeVersion": 4.1,
+      "position": [
+        1328,
+        1152
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://us-central1-aiplatform.googleapis.com/v1/projects/{{ $env.GOOGLE_PROJECT_ID }}/locations/us-central1/publishers/google/models/veo-2.0-generate-001:predictLongRunning",
-        "authentication": "none",
+        "url": "=https://api.twitter.com/2/tweets",
+        "authentication": "oAuth2",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $('Extract Access Token').item.json.access_token }}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
-        "contentType": "json",
-        "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"instances\": [{ \"prompt\": $json.scene2_prompt }],\n  \"parameters\": {\n    \"aspectRatio\": \"9:16\",\n    \"videoLength\": $json.scene2_duration_final.toString() + \"s\",\n    \"outputOptions\": { \"fps\": 24, \"resolution\": \"1080p\" },\n    \"storageUri\": \"gs://\" + $env.GOOGLE_GCS_BUCKET + \"/veo-broll/\" + $json.viral_record_id + \"/scene2/\",\n    \"sampleCount\": 1,\n    \"durationSeconds\": $json.scene2_duration_final,\n    \"enhancePrompt\": true,\n    \"generateAudio\": false\n  }\n} }}",
-        "options": { "timeout": 30000 }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [2800, 200],
-      "id": "veo-scene2-generate-s3",
-      "name": "Veo: Generate Scene 2 (Main+CTA)"
-    },
-    {
-      "parameters": {
-        "jsCode": "const veoResponse = $input.item.json;\nconst prevData = $('Store Scene 1 Operation Name').item.json;\nconst operationName = veoResponse.name || veoResponse.operationName || '';\nif (!operationName) throw new Error('Veo Scene 2 did not return operationName');\nconst operationId = operationName.includes('/') ? operationName.split('/').pop() || operationName : operationName;\nconst fullOpPath = \"projects/\" + $env.GOOGLE_PROJECT_ID + \"/locations/us-central1/operations/\" + operationId;\nreturn [{ json: { ...prevData, scene2_operation: fullOpPath, scene2_submitted: true, both_submitted_at: new Date().toISOString() } }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [3000, 200],
-      "id": "store-scene2-op-s3",
-      "name": "Store Scene 2 Operation Name"
-    },
-    {
-      "parameters": {
-        "content": "## STEP 4: POLL VEO UNTIL COMPLETE\nPoll Scene 1 operation → then Scene 2 → extract GCS URIs",
-        "height": 200,
-        "width": 700,
-        "color": 7
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [3100, 0],
-      "typeVersion": 1,
-      "id": "sticky-stage3-step4",
-      "name": "Step 4 Label"
-    },
-    {
-      "parameters": { "amount": 3, "unit": "minutes" },
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1,
-      "position": [3200, 200],
-      "id": "wait-veo-initial-s3",
-      "name": "Wait 3 min (Veo renders)"
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "=https://us-central1-aiplatform.googleapis.com/v1beta1/{{ $json.scene1_operation }}",
-        "authentication": "none",
-        "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{ $('Extract Access Token').item.json.access_token }}" }] },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [3400, 200],
-      "id": "poll-scene1-s3",
-      "name": "Poll Scene 1 Status"
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "=https://us-central1-aiplatform.googleapis.com/v1beta1/{{ $('Store Scene 2 Operation Name').item.json.scene2_operation }}",
-        "authentication": "none",
-        "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{ $('Extract Access Token').item.json.access_token }}" }] },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [3400, 380],
-      "id": "poll-scene2-s3",
-      "name": "Poll Scene 2 Status"
-    },
-    {
-      "parameters": {
-        "jsCode": "const scene1Status = $('Poll Scene 1 Status').item.json;\nconst scene2Status = $('Poll Scene 2 Status').item.json;\nconst scene1Done = scene1Status.done === true || (scene1Status.response?.videos?.length > 0);\nconst scene2Done = scene2Status.done === true || (scene2Status.response?.videos?.length > 0);\nconst bothDone = scene1Done && scene2Done;\nconst allData = $('Store Scene 2 Operation Name').item.json;\nreturn [{ json: { ...allData, scene1_poll_response: scene1Status, scene2_poll_response: scene2Status, scene1_done: scene1Done, scene2_done: scene2Done, both_done: bothDone } }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [3600, 290],
-      "id": "check-both-done-s3",
-      "name": "Check Both Scenes Done?"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": true, "typeValidation": "strict" },
-          "conditions": [{ "id": "both-complete", "leftValue": "={{ $json.both_done }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }],
-          "combinator": "and"
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
         },
         "options": {}
       },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [3800, 290],
-      "id": "are-both-done-s3",
-      "name": "Are Both Scenes Done?"
-    },
-    {
-      "parameters": { "amount": 90, "unit": "seconds" },
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1,
-      "position": [3600, 480],
-      "id": "wait-retry-s3",
-      "name": "Wait 90s (retry poll)"
+      "id": "node-s3-post-twitter",
+      "name": "Post to Twitter/X",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1296,
+        1840
+      ]
     },
     {
       "parameters": {
-        "content": "## STEP 5: EXTRACT URLS + SIGN GCS\nExtract GCS URIs, generate signed public URLs, store in Airtable",
-        "height": 200,
-        "width": 700,
-        "color": 2
+        "jsCode": "// Log successful posts and update status\nconst posted = $input.all();\nfor (const post of posted) {\n  const platform = post.json._targetPlatform || 'Unknown';\n  console.log(`✅ Posted to ${platform}: ${post.json.Script_Title}`);\n}\nconsole.log(`📊 Total posts published: ${posted.length}`);\nreturn posted;"
       },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [4000, 0],
-      "typeVersion": 1,
-      "id": "sticky-stage3-step5",
-      "name": "Step 5 Label"
-    },
-    {
-      "parameters": {
-        "jsCode": "const d = $input.item.json;\nlet scene1GcsUri = '';\ntry {\n  const s1r = d.scene1_poll_response;\n  scene1GcsUri = s1r?.response?.videos?.[0]?.gcsUri || s1r?.response?.predictions?.[0]?.videoGcsUri || s1r?.metadata?.videos?.[0]?.gcsUri || '';\n} catch(e) { scene1GcsUri = ''; }\nlet scene2GcsUri = '';\ntry {\n  const s2r = d.scene2_poll_response;\n  scene2GcsUri = s2r?.response?.videos?.[0]?.gcsUri || s2r?.response?.predictions?.[0]?.videoGcsUri || s2r?.metadata?.videos?.[0]?.gcsUri || '';\n} catch(e) { scene2GcsUri = ''; }\nif (!scene1GcsUri || !scene2GcsUri) throw new Error(`GCS URI extraction failed`);\nconst toHttpsUrl = (gcsUri) => gcsUri.replace('gs://', 'https://storage.googleapis.com/');\nconst scene1PublicUrl = toHttpsUrl(scene1GcsUri);\nconst scene2PublicUrl = toHttpsUrl(scene2GcsUri);\nreturn [{ json: { ...d, scene1_gcs_uri: scene1GcsUri, scene2_gcs_uri: scene2GcsUri, scene1_public_url: scene1PublicUrl, scene2_public_url: scene2PublicUrl, extraction_complete: true } }];"
-      },
+      "id": "node-s3-log-posts",
+      "name": "Log Published Posts",
       "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [4100, 200],
-      "id": "extract-gcs-urls-s3",
-      "name": "Extract GCS URIs → Public URLs"
+      "typeVersion": 2,
+      "position": [
+        2640,
+        1360
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const d = $input.item.json;\nconst parseGcs = (gcsUri) => { const withoutGs = gcsUri.replace('gs://', ''); const slashIdx = withoutGs.indexOf('/'); const bucket = withoutGs.substring(0, slashIdx); const objectPath = withoutGs.substring(slashIdx + 1); return { bucket, objectPath }; };\nconst s1 = parseGcs(d.scene1_gcs_uri);\nconst s2 = parseGcs(d.scene2_gcs_uri);\nconst scene1AuthUrl = `https://storage.googleapis.com/storage/v1/b/${s1.bucket}/o/${encodeURIComponent(s1.objectPath)}?alt=media`;\nconst scene2AuthUrl = `https://storage.googleapis.com/storage/v1/b/${s2.bucket}/o/${encodeURIComponent(s2.objectPath)}?alt=media`;\nconst scene1FinalUrl = d.scene1_public_url;\nconst scene2FinalUrl = d.scene2_public_url;\nreturn [{ json: { ...d, scene1_final_url: scene1FinalUrl, scene2_final_url: scene2FinalUrl, scene1_auth_url: scene1AuthUrl, scene2_auth_url: scene2AuthUrl, broll_scene1_url: scene1FinalUrl, broll_scene2_url: scene2FinalUrl, broll_scene1_duration: d.scene1_duration_final, broll_scene2_duration: d.scene2_duration_final, broll_character: d.character, broll_emotion: d.emotion, broll_scene1_prompt: d.scene1_prompt, broll_scene2_prompt: d.scene2_prompt, broll_total_duration: d.total_duration, urls_ready: true } }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [4300, 200],
-      "id": "build-signed-urls-s3",
-      "name": "Build Public URLs (GCS)"
-    },
-    {
-      "parameters": {
-        "operation": "create",
-        "base": { "__rl": true, "value": "={{ $env.AIRTABLE_BASE_ID }}", "mode": "id" },
-        "table": { "__rl": true, "value": "={{ $env.AT_TABLE_VEO_BROLL }}", "mode": "id" },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "Name": "={{ $json.character + ' - ' + $json.emotion + ' - ' + $now.format('yyyy-MM-dd') }}",
-            "Viral_Record_ID": "={{ $json.viral_record_id }}",
-            "Character": "={{ $json.character }}",
-            "Emotion": "={{ $json.emotion }}",
-            "Scene_Setting": "={{ $json.scene_setting }}",
-            "Visual_Metaphor": "={{ $json.visual_metaphor }}",
-            "Scene1_Prompt": "={{ $json.scene1_prompt }}",
-            "Scene1_URL": "={{ $json.broll_scene1_url }}",
-            "Scene1_Duration": "={{ $json.broll_scene1_duration }}",
-            "Scene1_GCS_URI": "={{ $json.scene1_gcs_uri }}",
-            "Scene2_Prompt": "={{ $json.scene2_prompt }}",
-            "Scene2_URL": "={{ $json.broll_scene2_url }}",
-            "Scene2_Duration": "={{ $json.broll_scene2_duration }}",
-            "Scene2_GCS_URI": "={{ $json.scene2_gcs_uri }}",
-            "Total_Duration": "={{ $json.broll_total_duration }}",
-            "Platform": "={{ $json.platform }}",
-            "Status": "Ready for Submagic",
-            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}"
-          }
+        "method": "POST",
+        "url": "=https://www.reddit.com/api/submit",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "oAuth2Api",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "api_type",
+              "value": "json"
+            },
+            {
+              "name": "kind",
+              "value": "self"
+            },
+            {
+              "name": "subreddit",
+              "value": "={{ $json.Reddit_Subreddit || 'reddit' }}"
+            },
+            {
+              "name": "title",
+              "value": "={{ $json.Script_Title }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.Main_Content }}\n\n---\n**CTA:** {{ $json.CTA }}\n\n*Hook:* {{ $json.Hook }}"
+            }
+          ]
         },
-        "options": { "typecast": true }
+        "options": {}
       },
-      "type": "n8n-nodes-base.airtable",
+      "id": "node-s3-post-reddit",
+      "name": "Post to Reddit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1328,
+        1360
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "6Or7ukPXmVrFoAU9",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "node-s3-merge-posts",
+      "name": "Merge All Posts",
+      "type": "n8n-nodes-base.merge",
       "typeVersion": 2.1,
-      "position": [4500, 200],
-      "id": "store-veo-broll-s3",
-      "name": "Store in Veo_Broll Table"
+      "position": [
+        2208,
+        1440
+      ]
     },
     {
       "parameters": {
-        "operation": "update",
-        "base": { "__rl": true, "value": "={{ $env.AIRTABLE_BASE_ID }}", "mode": "id" },
-        "table": { "__rl": true, "value": "={{ $env.AT_TABLE_VIRAL_DB }}", "mode": "id" },
-        "recordId": "={{ $json.viral_record_id }}",
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "Status": "B-Roll Generated",
-            "Veo_Scene1_URL": "={{ $json.broll_scene1_url }}",
-            "Veo_Scene2_URL": "={{ $json.broll_scene2_url }}"
-          }
+        "rules": {
+          "rules": [
+            {
+              "output": 0,
+              "operator": "equal",
+              "value1": "={{ $json._targetPlatform }}",
+              "value2": "linkedin"
+            },
+            {
+              "output": 1,
+              "operator": "equal",
+              "value1": "={{ $json._targetPlatform }}",
+              "value2": "facebook"
+            },
+            {
+              "output": 2,
+              "operator": "equal",
+              "value1": "={{ $json._targetPlatform }}",
+              "value2": "twitter/x"
+            },
+            {
+              "output": 3,
+              "operator": "equal",
+              "value1": "={{ $json._targetPlatform }}",
+              "value2": "reddit"
+            }
+          ]
         },
-        "options": {}
+        "fallbackOutput": "none"
       },
-      "type": "n8n-nodes-base.airtable",
-      "typeVersion": 2.1,
-      "position": [4700, 200],
-      "id": "update-viral-db-status-s3",
-      "name": "Update Viral DB: B-Roll Generated"
+      "id": "node-s3-switch",
+      "name": "Switch Platform",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        900,
+        1500
+      ]
     }
-
   ],
   "pinData": {},
   "connections": {
-    "Get Analyzed Content": {
+    "Manual Trigger": {
       "main": [
         [
-          {
-            "node": "Filter: Status = Generate Script",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Filter: Status = Generate Script": {
-      "main": [
-        [
-          {
-            "node": "Generate Video Script",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Gemini 2.0 Script": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Generate Video Script",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Generate Video Script": {
-      "main": [
-        [
-          {
-            "node": "Parse AI Script",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse AI Script": {
-      "main": [
-        [
-          {
-            "node": "Store Script in Library",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Trigger Generate Script": {
-      "main": [
-        [
-          {
-            "node": "Get Analyzed Content",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Schedule Trigger (Every 12h)": {
-      "main": [
-        [
-          {
-            "node": "Generate Global URLs",
-            "type": "main",
-            "index": 0
-          },
           {
             "node": "Generate Reddit URLs",
             "type": "main",
@@ -1400,44 +769,11 @@
         ]
       ]
     },
-    "Generate Global URLs": {
+    "Schedule Trigger": {
       "main": [
         [
           {
-            "node": "Fetch Google Trends RSS",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch Google Trends RSS": {
-      "main": [
-        [
-          {
-            "node": "Parse All Trends (Full Metadata)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse All Trends (Full Metadata)": {
-      "main": [
-        [
-          {
-            "node": "Filter Viral Trends (500+)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Filter Viral Trends (500+)": {
-      "main": [
-        [
-          {
-            "node": "Merge: Google Trends + Reddit",
+            "node": "Generate Reddit URLs",
             "type": "main",
             "index": 0
           }
@@ -1448,206 +784,80 @@
       "main": [
         [
           {
-            "node": "Fetch Reddit Posts",
+            "node": "Fetch Reddit via Apify",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Fetch Reddit Posts": {
+    "Fetch Reddit via Apify": {
       "main": [
         [
           {
-            "node": "Parse Reddit Posts",
+            "node": "Parse Reddit Posts (News Only)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Parse Reddit Posts": {
+    "Parse Reddit Posts (News Only)": {
       "main": [
         [
           {
-            "node": "Merge: Google Trends + Reddit",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Merge: Google Trends + Reddit": {
-      "main": [
-        [
-          {
-            "node": "Gemini: Viral Scout",
+            "node": "Remove Empty Items",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Gemini 2.0 (Scout)": {
+    "Remove Empty Items": {
+      "main": [
+        [
+          {
+            "node": "Gemini Analyze News Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model": {
       "ai_languageModel": [
         [
           {
-            "node": "Gemini: Viral Scout",
+            "node": "Gemini Analyze News Post",
             "type": "ai_languageModel",
             "index": 0
           }
         ]
       ]
     },
-    "Gemini: Viral Scout": {
+    "Gemini Analyze News Post": {
       "main": [
         [
           {
-            "node": "Top Viral Bangers",
+            "node": "Parse Gemini Results",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Top Viral Bangers": {
+    "Parse Gemini Results": {
       "main": [
         [
           {
-            "node": "Store in Inspiration DB",
+            "node": "Filter Relevant News Only",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Store in Inspiration DB": {
-      "main": [
-        []
-      ]
-    },
-    "Trigger Scraping Run": {
-      "main": [
-        [
-          {
-            "node": "Read Inspiration DB (Pending)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Read Inspiration DB (Pending)": {
-      "main": [
-        [
-          {
-            "node": "Gemini: Hashtag Optimizer",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Gemini: Hashtag Optimizer": {
-      "main": [
-        [
-          {
-            "node": "Parse Keywords",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Gemini 2.0 (Optimizer)": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Gemini: Hashtag Optimizer",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse Keywords": {
-      "main": [
-        [
-          {
-            "node": "Apify: Scrape Instagram Reels",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Apify: Scrape Instagram Reels": {
-      "main": [
-        [
-          {
-            "node": "Normalize Reel Metadata",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Normalize Reel Metadata": {
-      "main": [
-        [
-          {
-            "node": "Fetch Subtitles (SRT)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch Subtitles (SRT)": {
-      "main": [
-        [
-          {
-            "node": "Clean Subtitles",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Clean Subtitles": {
-      "main": [
-        [
-          {
-            "node": "Analyze Viral Content (Gemini)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Analyze Viral Content (Gemini)": {
-      "main": [
-        [
-          {
-            "node": "Parse Gemini Analysis",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Gemini 2.0 Flash": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Analyze Viral Content (Gemini)",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse Gemini Analysis": {
+    "Filter Relevant News Only": {
       "main": [
         [
           {
@@ -1658,111 +868,303 @@
         ]
       ]
     },
-    "Manual Discovery Trigger": {
+    "Store in Viral Content DB": {
+      "main": [
+        []
+      ]
+    },
+    "Manual Trigger (Stage 2)": {
       "main": [
         [
           {
-            "node": "Generate Global URLs",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Generate Reddit URLs",
+            "node": "Read Viral Content DB",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Trigger: Every 6 Hours (S3)": {
-      "main": [[{ "node": "Fetch Viral DB (Generate B-Roll)", "type": "main", "index": 0 }]]
-    },
-    "Fetch Viral DB (Generate B-Roll)": {
-      "main": [[{ "node": "Extract Viral DB Fields", "type": "main", "index": 0 }]]
-    },
-    "Extract Viral DB Fields": {
-      "main": [[{ "node": "Has Linked Script?", "type": "main", "index": 0 }]]
-    },
-    "Has Linked Script?": {
+    "Schedule Trigger (Every 6h)": {
       "main": [
-        [{ "node": "Fetch Linked Script", "type": "main", "index": 0 }],
-        [{ "node": "Fallback: Use Viral Content Direct", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Read Viral Content DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Fetch Linked Script": {
-      "main": [[{ "node": "Merge: Viral + Linked Script", "type": "main", "index": 0 }]]
-    },
-    "Merge: Viral + Linked Script": {
-      "main": [[{ "node": "Merge Both Paths", "type": "main", "index": 0 }]]
-    },
-    "Fallback: Use Viral Content Direct": {
-      "main": [[{ "node": "Merge Both Paths", "type": "main", "index": 1 }]]
-    },
-    "Merge Both Paths": {
-      "main": [[{ "node": "Calculate Scene Timings", "type": "main", "index": 0 }]]
-    },
-    "Calculate Scene Timings": {
-      "main": [[{ "node": "AI: Extract Scene DNA + Build Veo Prompts", "type": "main", "index": 0 }]]
-    },
-    "Gemini 2.0 (Scene)": {
-      "ai_languageModel": [[{ "node": "AI: Extract Scene DNA + Build Veo Prompts", "type": "ai_languageModel", "index": 0 }]]
-    },
-    "AI: Extract Scene DNA + Build Veo Prompts": {
-      "main": [[{ "node": "Parse Scene AI Output", "type": "main", "index": 0 }]]
-    },
-    "Parse Scene AI Output": {
-      "main": [[{ "node": "Refresh Google Access Token", "type": "main", "index": 0 }]]
-    },
-    "Refresh Google Access Token": {
-      "main": [[{ "node": "Extract Access Token", "type": "main", "index": 0 }]]
-    },
-    "Extract Access Token": {
-      "main": [[{ "node": "Veo: Generate Scene 1 (Hook)", "type": "main", "index": 0 }]]
-    },
-    "Veo: Generate Scene 1 (Hook)": {
-      "main": [[{ "node": "Store Scene 1 Operation Name", "type": "main", "index": 0 }]]
-    },
-    "Store Scene 1 Operation Name": {
-      "main": [[{ "node": "Veo: Generate Scene 2 (Main+CTA)", "type": "main", "index": 0 }]]
-    },
-    "Veo: Generate Scene 2 (Main+CTA)": {
-      "main": [[{ "node": "Store Scene 2 Operation Name", "type": "main", "index": 0 }]]
-    },
-    "Store Scene 2 Operation Name": {
-      "main": [[{ "node": "Wait 3 min (Veo renders)", "type": "main", "index": 0 }]]
-    },
-    "Wait 3 min (Veo renders)": {
+    "Read Viral Content DB": {
       "main": [
-        [{ "node": "Poll Scene 1 Status", "type": "main", "index": 0 }],
-        [{ "node": "Poll Scene 2 Status", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Filter Unprocessed Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Poll Scene 1 Status": {
-      "main": [[{ "node": "Check Both Scenes Done?", "type": "main", "index": 0 }]]
-    },
-    "Poll Scene 2 Status": {
-      "main": [[{ "node": "Check Both Scenes Done?", "type": "main", "index": 0 }]]
-    },
-    "Check Both Scenes Done?": {
-      "main": [[{ "node": "Are Both Scenes Done?", "type": "main", "index": 0 }]]
-    },
-    "Are Both Scenes Done?": {
+    "Filter Unprocessed Posts": {
       "main": [
-        [{ "node": "Extract GCS URIs → Public URLs", "type": "main", "index": 0 }],
-        [{ "node": "Wait 90s (retry poll)", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Gemini Generate Social Scripts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gemini Generate Script - Twitter/X",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gemini Generate Script - Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Wait 90s (retry poll)": {
-      "main": [[{ "node": "Poll Scene 1 Status", "type": "main", "index": 0 }]]
+    "Gemini Model (Stage 2)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gemini Generate Social Scripts",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Gemini Generate Script - Twitter/X",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Gemini Generate Script - Facebook",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Extract GCS URIs → Public URLs": {
-      "main": [[{ "node": "Build Public URLs (GCS)", "type": "main", "index": 0 }]]
+    "Gemini Generate Social Scripts": {
+      "main": [
+        [
+          {
+            "node": "Parse Gemini Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Build Public URLs (GCS)": {
-      "main": [[{ "node": "Store in Veo_Broll Table", "type": "main", "index": 0 }]]
+    "Gemini Generate Script - Twitter/X": {
+      "main": [
+        [
+          {
+            "node": "Parse Gemini Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Store in Veo_Broll Table": {
-      "main": [[{ "node": "Update Viral DB: B-Roll Generated", "type": "main", "index": 0 }]]
+    "Gemini Generate Script - Facebook": {
+      "main": [
+        [
+          {
+            "node": "Parse Gemini Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gemini Scripts": {
+      "main": [
+        [
+          {
+            "node": "Remove Empty Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Empty Scripts": {
+      "main": [
+        [
+          {
+            "node": "Store in Script Library",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store in Script Library": {
+      "main": [
+        []
+      ]
+    },
+    "Manual Trigger (Stage 3)": {
+      "main": [
+        [
+          {
+            "node": "Read Approved Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger (Every 4h)": {
+      "main": [
+        [
+          {
+            "node": "Read Approved Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Approved Scripts": {
+      "main": [
+        [
+          {
+            "node": "Filter Approved Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Approved Status": {
+      "main": [
+        [
+          {
+            "node": "Route by Platform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Platform": {
+      "main": [
+        [
+          {
+            "node": "DEBUG: Before Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DEBUG: Before Switch": {
+      "main": [
+        [
+          {
+            "node": "Switch Platform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Merge All Posts",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Post to Facebook": {
+      "main": [
+        [
+          {
+            "node": "Merge All Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Twitter/X": {
+      "main": [
+        [
+          {
+            "node": "Merge All Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Published Posts": {
+      "main": [
+        []
+      ]
+    },
+    "Post to Reddit": {
+      "main": [
+        [
+          {
+            "node": "Merge All Posts",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge All Posts": {
+      "main": [
+        [
+          {
+            "node": "Log Published Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Platform": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to Twitter/X",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to Reddit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
@@ -1770,7 +1172,7 @@
     "executionOrder": "v1",
     "availableInMCP": false
   },
-  "versionId": "10ab2df4-a47e-49d2-92e4-d2e18fbdf249",
+  "versionId": "cbe9a13b-d86a-4234-993d-820e1fc898fe",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "dc87f94e8f44b5018e54a588eebeaae61eebdb6c256f8f2f61b7c6ba347bca63"

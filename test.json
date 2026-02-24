@@ -1,0 +1,619 @@
+{
+  "name": "Viral Content Factory - Stage 1 Content Discovery",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [464, -1056],
+      "id": "schedule-trigger-id",
+      "name": "Schedule Trigger (Every 12h)"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [480, -832],
+      "id": "webhook-trigger-id",
+      "name": "Manual Discovery Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate RSS URLs for 36 countries to maximize viral trend coverage\nconst geos = [\"US\", \"IN\", \"GB\", \"CA\", \"AU\", \"BR\", \"NG\", \"ID\", \"MX\", \"DE\", \"FR\", \"JP\", \"KR\", \"TR\", \"IT\", \"ES\", \"VN\", \"PH\", \"TH\", \"MY\", \"SG\", \"NZ\", \"IE\", \"NL\", \"BE\", \"CH\", \"AT\", \"SE\", \"NO\", \"DK\", \"PL\", \"IL\", \"ZA\", \"EG\", \"SA\", \"AE\"];\nreturn geos.map(geo => ({ json: { geo, url: `https://trends.google.com/trending/rss?geo=${geo}` } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [640, -992],
+      "id": "generate-global-urls-id",
+      "name": "Generate Global URLs"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [848, -992],
+      "id": "google-trends-id",
+      "name": "Fetch Google Trends RSS"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse ALL Google Trends RSS feeds → extract FULL metadata + descriptive keywords\nconst items = $input.all();\nconst allTrends = [];\n\nfor (const item of items) {\n  const xml = item.json.data || '';\n  const geo = item.json.geo || 'US';\n  \n  if (!xml || xml.length < 100) continue;\n  \n  // Extract each <item> block from RSS\n  const itemMatches = [...xml.matchAll(/<item>([\\s\\S]*?)<\\/item>/g)];\n  \n  for (const match of itemMatches) {\n    const inner = match[1];\n    \n    // Extract title (keyword)\n    const titleMatch = inner.match(/<title>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?<\\/title>/);\n    const title = titleMatch ? titleMatch[1].trim() : '';\n    if (!title || title === 'Daily Search Trends') continue;\n    \n    // Extract approx traffic / search volume\n    const trafficMatch = inner.match(/<ht:approx_traffic>(.*?)<\\/ht:approx_traffic>/);\n    const approx_traffic = trafficMatch ? trafficMatch[1].trim() : '0';\n    \n    // Extract ALL news item titles (context for the trend)\n    const newsItemTitles = [...inner.matchAll(/<ht:news_item_title>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?<\\/ht:news_item_title>/g)]\n      .map(m => m[1].trim());\n    \n    // Extract news item sources\n    const newsItemSources = [...inner.matchAll(/<ht:news_item_source>(.*?)<\\/ht:news_item_source>/g)]\n      .map(m => m[1].trim());\n    \n    // Extract news item URLs\n    const newsItemUrls = [...inner.matchAll(/<ht:news_item_url>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?<\\/ht:news_item_url>/g)]\n      .map(m => m[1].trim());\n    \n    // Extract picture URL\n    const picMatch = inner.match(/<ht:picture>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?<\\/ht:picture>/);\n    const picture = picMatch ? picMatch[1].trim() : '';\n    \n    // Extract pubDate\n    const pubDateMatch = inner.match(/<pubDate>(.*?)<\\/pubDate>/);\n    const pubDate = pubDateMatch ? pubDateMatch[1].trim() : '';\n    \n    // Parse traffic number for sorting\n    const trafficNum = parseInt(approx_traffic.replace(/[^0-9]/g, '')) || 0;\n    \n    // Build descriptive one-sentence keyword using news context\n    const newsContext = newsItemTitles.length > 0 ? newsItemTitles[0] : '';\n    const descriptive_keyword = newsContext \n      ? `${title} - ${newsContext}`\n      : title;\n    \n    allTrends.push({\n      trend_keyword: title,\n      descriptive_keyword: descriptive_keyword,\n      approx_traffic: approx_traffic,\n      traffic_number: trafficNum,\n      news_headlines: newsItemTitles.join(' | '),\n      news_sources: newsItemSources.join(', '),\n      news_urls: newsItemUrls.join(' | '),\n      picture_url: picture,\n      pub_date: pubDate,\n      geo: geo,\n      source: 'Google Trends',\n      fetched_at: new Date().toISOString()\n    });\n  }\n}\n\n// Deduplicate by keyword (case-insensitive)\nconst unique = [];\nconst seen = new Set();\nfor (const t of allTrends) {\n  const key = t.trend_keyword.toLowerCase();\n  if (!seen.has(key)) {\n    seen.add(key);\n    unique.push({ json: t });\n  }\n}\n\n// Sort by traffic (highest first)\nunique.sort((a, b) => (b.json.traffic_number || 0) - (a.json.traffic_number || 0));\n\nreturn unique;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1056, -992],
+      "id": "parse-trends-id",
+      "name": "Parse All Trends (Full Metadata)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter: Keep only VIRAL trends (high traffic) — target 500+\n// Keeps everything with 10k+ searches, sorted by traffic descending\nconst items = $input.all();\n\n// Filter: keep trends with meaningful search volume (10k+)\nconst viral = items.filter(item => {\n  const traffic = item.json.traffic_number || 0;\n  return traffic >= 10000;\n});\n\n// If less than 500 after filtering, include ALL trends (don't lose data)\nconst result = viral.length >= 100 ? viral : items;\n\n// Use descriptive keyword as the main trend_keyword for Apify search\nreturn result.map(item => ({\n  json: {\n    ...item.json,\n    trend_keyword: item.json.descriptive_keyword || item.json.trend_keyword\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1264, -992],
+      "id": "limit-keywords-id",
+      "name": "Filter Viral Trends (500+)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate Reddit API URLs for viral subreddits\n// Using hot, rising, and top (past 24h) endpoints\nconst subreddits = ['all', 'technology', 'Futurology', 'worldnews', 'interestingasfuck', 'nextfuckinglevel', 'memes', 'science'];\nconst endpoints = [\n  { type: 'hot', suffix: 'hot.json?limit=30' },\n  { type: 'rising', suffix: 'rising.json?limit=30' },\n  { type: 'top', suffix: 'top.json?t=day&limit=30' }\n];\n\nconst urls = [];\nfor (const sub of subreddits) {\n  for (const ep of endpoints) {\n    urls.push({\n      json: {\n        url: `https://www.reddit.com/r/${sub}/${ep.suffix}`,\n        subreddit: sub,\n        endpoint_type: ep.type\n      }\n    });\n  }\n}\nreturn urls;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [640, -720],
+      "id": "generate-reddit-urls-id",
+      "name": "Generate Reddit URLs"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "n8n-content-factory/1.0"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [848, -720],
+      "id": "fetch-reddit-posts-id",
+      "name": "Fetch Reddit Posts"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Reddit JSON responses → normalize to same format as Google Trends\nconst items = $input.all();\nconst allPosts = [];\n\nfor (const item of items) {\n  const data = item.json.data || item.json;\n  const children = data?.children || [];\n  const subreddit = item.json.subreddit || 'all';\n  const endpointType = item.json.endpoint_type || 'hot';\n  \n  for (const child of children) {\n    const post = child.data || child;\n    if (!post || !post.title) continue;\n    \n    // Skip stickied/pinned posts\n    if (post.stickied) continue;\n    \n    const upvotes = post.ups || post.score || 0;\n    const comments = post.num_comments || 0;\n    const awards = post.total_awards_received || 0;\n    const upvoteRatio = post.upvote_ratio || 0;\n    \n    // Calculate engagement score\n    const engagementScore = upvotes + (comments * 2) + (awards * 10);\n    \n    allPosts.push({\n      trend_keyword: post.title,\n      descriptive_keyword: `${post.title} - r/${post.subreddit || subreddit}`,\n      approx_traffic: `${upvotes.toLocaleString()}+ upvotes`,\n      traffic_number: upvotes,\n      news_headlines: post.title,\n      news_sources: `Reddit r/${post.subreddit || subreddit}`,\n      news_urls: post.url || `https://reddit.com${post.permalink || ''}`,\n      picture_url: (post.thumbnail && post.thumbnail !== 'self' && post.thumbnail !== 'default') ? post.thumbnail : '',\n      pub_date: post.created_utc ? new Date(post.created_utc * 1000).toISOString() : new Date().toISOString(),\n      geo: 'Global',\n      source: 'Reddit',\n      reddit_subreddit: post.subreddit || subreddit,\n      reddit_endpoint: endpointType,\n      reddit_upvotes: upvotes,\n      reddit_comments: comments,\n      reddit_awards: awards,\n      reddit_upvote_ratio: upvoteRatio,\n      reddit_engagement: engagementScore,\n      reddit_permalink: `https://reddit.com${post.permalink || ''}`,\n      fetched_at: new Date().toISOString()\n    });\n  }\n}\n\n// Deduplicate by title\nconst unique = [];\nconst seen = new Set();\nfor (const p of allPosts) {\n  const key = p.trend_keyword.toLowerCase().substring(0, 80);\n  if (!seen.has(key)) {\n    seen.add(key);\n    unique.push({ json: p });\n  }\n}\n\n// Sort by engagement (highest first)\nunique.sort((a, b) => (b.json.reddit_engagement || 0) - (a.json.reddit_engagement || 0));\n\nreturn unique.length > 0 ? unique : [{ json: { error: 'No Reddit posts found', source: 'Reddit' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1056, -720],
+      "id": "parse-reddit-posts-id",
+      "name": "Parse Reddit Posts"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1568, -912],
+      "id": "merge-sources-id",
+      "name": "Merge: Google Trends + Reddit"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# VIRAL SCOUT — MILLION-LIKE POTENTIAL ANALYZER\n\nYou are a viral content analyst. Your job is to determine if this trending topic has REAL viral reel potential — the kind of content that gets millions of views on Instagram/TikTok.\n\n## TREND DATA\n- **Topic**: {{ $json.trend_keyword }}\n- **Search Volume**: {{ $json.approx_traffic }}\n- **News Context**: {{ $json.news_headlines || 'N/A' }}\n- **News Sources**: {{ $json.news_sources || 'N/A' }}\n- **Country**: {{ $json.geo }}\n- **Descriptive Keyword**: {{ $json.descriptive_keyword || $json.trend_keyword }}\n\n## VIRAL CATEGORIES (What we want):\n1. **Memes & Bizarre** — Penguin walking away from group, unusual animal behavior, absurd news\n2. **Tech & AI Breakthroughs** — GPT-5 launch, Chinese humanoid robots, new AI tools\n3. **Celebrity/CEO Moments** — Sundar Pichai robot meme, Elon tweets, viral CEO clips\n4. **Shocking News** — Court cases, scandals, unexpected revelations\n5. **Innovation & Science** — New inventions, space discoveries, medical breakthroughs\n6. **Cultural Phenomena** — Viral challenges, dance trends, unexpected heroes\n\n## WHAT TO REJECT:\n- Local sports scores (\"Team X beat Team Y 3-2\")\n- Weather reports\n- Stock market daily movements\n- Local politics with no viral hook\n- Generic celebrity gossip without a meme-worthy angle\n- Regular TV show episode releases\n\n## SCORING RULES:\n- **Tier S (95-100)**: Guaranteed viral. Massive search volume 1M+ AND meme/shock/innovation potential\n- **Tier A (85-94)**: Very high potential. 200k+ searches with strong visual/meme hook\n- **Tier B (70-84)**: Good potential. Has a unique angle that could work for reels\n- **Tier C (50-69)**: Maybe. Needs creative angle to work\n- **REJECT (0-49)**: Not worth Apify credits. Local noise, boring, no reel potential\n\n## YOUR TASK:\n1. Score the viral potential (0-100)\n2. Decide if it's a BANGER (worth spending Apify credits on)\n3. Create an OPTIMIZED Instagram search keyword — a vivid sentence for finding viral reels about this topic\n4. Identify the viral angle — what makes this topic shareable\n\n## OUTPUT (JSON ONLY, no markdown):\n{\n  \"viral_score\": 0,\n  \"is_banger\": true,\n  \"category\": \"Meme/Tech/Innovation/Bizarre/Celebrity/News\",\n  \"instagram_search_keyword\": \"Vivid one-sentence search phrase optimized for Instagram reel discovery\",\n  \"viral_angle\": \"Why this will go viral in one sentence\",\n  \"reject_reason\": \"Only fill if is_banger is false\"\n}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [1952, -992],
+      "id": "gemini-viral-scout-id",
+      "name": "Gemini: Viral Scout",
+      "settings": {
+        "errorHandling": "continueRegular"
+      },
+      "onError": "continue"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [2000, -800],
+      "id": "gemini-scout-model-id",
+      "name": "Gemini 2.0 (Scout)",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "igaSdthsiO1WHIs5",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Gemini Viral Scout results and filter only BANGERS\nconst items = $input.all();\nconst bangers = [];\n\nfor (const item of items) {\n  const rawText = item.json.text || item.json.output || '';\n  let analysis = {};\n  \n  try {\n    analysis = JSON.parse(rawText);\n  } catch(e) {\n    // Try to extract JSON from response\n    const jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      try { analysis = JSON.parse(jsonMatch[0]); } catch(e2) {}\n    }\n  }\n  \n  // Only keep bangers (is_banger === true AND viral_score >= 70)\n  if (analysis.is_banger === true && (analysis.viral_score || 0) >= 70) {\n    bangers.push({\n      json: {\n        // Use Gemini's optimized search keyword for Apify\n        trend_keyword: analysis.instagram_search_keyword || item.json.trend_keyword || '',\n        original_keyword: item.json.trend_keyword || '',\n        viral_score: analysis.viral_score || 0,\n        category: analysis.category || 'Unknown',\n        viral_angle: analysis.viral_angle || '',\n        approx_traffic: item.json.approx_traffic || '0',\n        traffic_number: item.json.traffic_number || 0,\n        news_headlines: item.json.news_headlines || '',\n        news_sources: item.json.news_sources || '',\n        picture_url: item.json.picture_url || '',\n        geo: item.json.geo || '',\n        source: item.json.source || 'Google Trends',\n        fetched_at: item.json.fetched_at || new Date().toISOString()\n      }\n    });\n  }\n}\n\n// Sort by viral score (highest first)\nbangers.sort((a, b) => (b.json.viral_score || 0) - (a.json.viral_score || 0));\n\n// Return all bangers (should be much less than 500, saving Apify credits)\nif (bangers.length === 0) {\n  return [{ json: { error: 'No viral bangers found this cycle', total_analyzed: items.length } }];\n}\n\nreturn bangers;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2288, -992],
+      "id": "top-viral-bangers-id",
+      "name": "Top Viral Bangers"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_INSPIRATION }}",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ ($json.original_keyword || $json.trend_keyword || '').substring(0, 100) }}",
+            "Platform": "={{ $json.source || 'Google Trends' }}",
+            "Search_Keyword": "={{ $json.trend_keyword }}",
+            "Category": "={{ $json.Category }}",
+            "Viral_Score": "={{ $json.viral_score || 0 }}",
+            "Viral_Angle": "={{ $json.Viral_Angle }}",
+            "Approx_Traffic": "={{ $json.approx_traffic || '0' }}",
+            "News_Context": "={{ ($json.news_headlines || '').substring(0, 500) }}",
+            "Source_URL": "={{ $json.Source_URL }}",
+            "Geo": "={{ $json.geo || 'Global' }}",
+            "Status": "Pending",
+            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}"
+          }
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [2464, -992],
+      "id": "store-inspiration-id",
+      "name": "Store in Inspiration DB",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [2288, -720],
+      "id": "trigger-scraping-id",
+      "name": "Trigger Scraping Run"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_INSPIRATION }}",
+          "mode": "id"
+        },
+        "filterByFormula": "{Status} = 'Pending'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [2464, -720],
+      "id": "read-inspiration-id",
+      "name": "Read Inspiration DB (Pending)",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# INSTAGRAM REEL SEARCH OPTIMIZER\n\nYou are an expert in Instagram Reels and viral discovery. Your goal is to generate ONE highly effective SEARCH QUERY (a long, vivid descriptive phrase) that will help find the best viral reels for this topic.\n\n## TREND DATA\n- **Name**: {{ $json.Name }}\n- **Platform**: {{ $json.Platform }}\n- **Search Keyword**: {{ $json.Search_Keyword }}\n- **Viral Angle**: {{ $json.Viral_Angle }}\n- **Category**: {{ $json.Category }}\n\n## YOUR TASK:\n1. Analyze the trend and viral angle.\n2. Generate ONE short but vivid search phrase (e.g., \"elon musk robot meme 2024 viral\", \"funny penguin trip ice glitch\").\n3. Do not use # symbols. Just the phrase.\n\n## OUTPUT (JSON ONLY, no markdown):\n{\n  \"search_query\": \"The vivid search phrase optimized for Reel discovery\"\n}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [2688, -720],
+      "id": "gemini-hashtag-optimizer-id",
+      "name": "Gemini: Hashtag Optimizer",
+      "settings": {
+        "errorHandling": "continueRegular"
+      },
+      "onError": "continue"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [2736, -528],
+      "id": "gemini-optimizer-model-id",
+      "name": "Gemini 2.0 (Optimizer)",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "igaSdthsiO1WHIs5",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Gemini Keyword Optimizer results in BATCH mode\nconst items = $input.all();\nconst airtableRecords = $(\"Read Inspiration DB (Pending)\").all();\n\nreturn items.map((item, index) => {\n  const rawText = item.json.text || item.json.output || '';\n  let analysis = {};\n  \n  try {\n    analysis = JSON.parse(rawText);\n  } catch(e) {\n    const jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      try { analysis = JSON.parse(jsonMatch[0]); } catch(e2) {}\n    }\n  }\n\n  // Get corresponding Airtable record\n  const airtableData = airtableRecords[index]?.json || {};\n\n  // Fallback if no search_query found\n  const query = analysis.search_query || airtableData.Search_Keyword || \"\";\n\n  return {\n    json: {\n      ...airtableData,\n      optimized_query: query\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2944, -720],
+      "id": "parse-hashtags-id",
+      "name": "Parse Keywords"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.apify.com/v2/acts/patient_discovery~instagram-search-reels/run-sync-get-dataset-items?token={{ $env.APIFY_API_TOKEN }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"query\": $json.optimized_query || $json.Search_Keyword,\n  \"resultsLimit\": 10\n} }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [3200, -720],
+      "id": "apify-scraper-id",
+      "name": "Apify: Scrape Instagram Reels",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize Apify Instagram Reel Scraper output (Batch Mode)\nconst airtableKeywords = $items(\"Parse Keywords\");\nlet normalized = [];\n\nconst inputs = $input.all();\ninputs.forEach((input, index) => {\n  // Find the keyword that triggered this specific search\n  const keywordData = airtableKeywords[index] ? airtableKeywords[index].json : {};\n  const parentKeyword = keywordData.optimized_query || keywordData.Search_Keyword || \"\";\n\n  // Handle Apify's variable output structure\n  const raw = input.json;\n  let rawArray = [];\n  if (Array.isArray(raw)) {\n    rawArray = raw;\n  } else if (raw && raw.data && Array.isArray(raw.data)) {\n    rawArray = raw.data;\n  } else if (raw) {\n    rawArray = [raw];\n  }\n\n  // Filter and map this keyword's specific reels\n  const mappedReels = rawArray\n    .filter(item => item && (item.code || item.shortCode || item.shortcode || item.id || item.reel_id))\n    .map(item => {\n      const metrics = item.engagement_metrics || {};\n      const details = item.content_details || {};\n\n      return {\n        json: {\n          // Identity\n          content_code:   item.shortcode || item.code || item.shortCode || item.reel_id || item.id || '',\n          url:            item.url  || `https://www.instagram.com/reel/${item.shortcode || item.code || item.shortCode}/`,\n          video_url:      item.video_url || item.videoUrl || '',\n          platform:       'Instagram',\n\n          // Content / Caption\n          prompt:         details.caption || item.caption?.text || item.text || item.caption || '',\n          timestamp:      item.scraped_at || item.taken_at_ts || item.taken_at || item.timestamp || new Date().toISOString(),\n\n          // Engagement Metrics\n          likes:          metrics.like_count || item.like_count || item.likesCount || 0,\n          comments:       metrics.comment_count || item.comment_count || item.commentsCount || 0,\n          views:          metrics.play_count || item.ig_play_count || item.play_count || item.videoViewCount || 0,\n          shares:         metrics.share_count || item.share_count || item.sharesCount || 0,\n          saves:          metrics.save_count || item.savesCount || item.saves || 0,\n\n          // Subtitles (New)\n          subtitle_url:   item.video_subtitles_uri || '',\n\n          // Author Metadata\n          author:         item.creator?.username || item.user?.username || item.ownerUsername || item.username || '',\n          author_id:      item.creator?.id || item.user?.id || item.ownerId || item.userId || '',\n          followers:      item.creator?.follower_count || item.owner?.followedByCount || 0,\n\n          // Computed\n          engagement_rate: (\n            ((metrics.like_count || 0) + (metrics.comment_count || 0)) /\n            Math.max(metrics.play_count || item.ig_play_count || item.play_count || 1, 1) * 100\n          ).toFixed(2),\n\n          // Pass through optimized query\n          trend_keyword: parentKeyword\n        }\n      };\n    });\n    \n  normalized = normalized.concat(mappedReels);\n});\n\nreturn normalized.length > 0 ? normalized : [{ json: { error: 'No reels found', raw: $input.all() } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3440, -720],
+      "id": "normalize-reels-id",
+      "name": "Normalize Reel Metadata"
+    },
+    {
+      "parameters": {
+        "url": "={{ ($json.subtitle_url && $json.subtitle_url.startsWith('http')) ? $json.subtitle_url : 'https://httpbin.org/status/200' }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [3440, -960],
+      "id": "fetch-subtitles-id",
+      "name": "Fetch Subtitles (SRT)",
+      "onError": "continueRegular"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean SRT subtitles into plain text and merge perfectly with original metadata\nconst originalItems = $items(\"Normalize Reel Metadata\");\n\nreturn $input.all().map((item, index) => {\n  const originalReel = originalItems[index] ? originalItems[index].json : {};\n  const srt = item.json.data || \"\";\n  let clean = \"\";\n  \n  if (originalReel.subtitle_url && typeof srt === 'string') {\n    clean = srt\n      .replace(/\\d+\\n\\d{2}:\\d{2}:\\d{2},\\d{3} --> \\d{2}:\\d{2}:\\d{2},\\d{3}/g, \"\")\n      .replace(/<[^>]*>/g, \"\")\n      .replace(/\\n\\s*\\n/g, \"\\n\")\n      .trim();\n  }\n\n  return {\n    json: {\n      ...originalReel,\n      transcript: clean || originalReel.prompt || \"\"\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3648, -960],
+      "id": "clean-subtitles-id",
+      "name": "Clean Subtitles"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# ScaleBuild AI - Viral Content Analyst\n\n## Viral DNA\n- **Platform**: {{ $json.platform || 'Instagram' }}\n- **Post ID**: {{ $json.content_code }}\n- **Caption/Content**: {{ $json.prompt }}\n- **Transcript (Clean)**: {{ $json.transcript || $json.prompt || 'No transcript available' }}\n- **Likes**: {{ $json.likes }}\n- **Comments**: {{ $json.comments }}\n- **Views**: {{ $json.views }}\n- **Shares**: {{ $json.shares }}\n- **Saves**: {{ $json.saves }}\n- **Engagement Rate**: {{ $json.engagement_rate }}%\n- **Trend Keyword That Found This**: {{ $json.trend_keyword }}\n\n## Task\nAnalyze this viral reel and reverse-engineer its viral chemistry.\nFocus on the STORY, NARRATIVE HOOK, and what made it spread.\nUse the cleaned transcript as the PRIMARY source for understanding the content.\n\nOutput ONLY a valid JSON object. No markdown. No extra text.\n\n{\n  \"viral_score\": 0,\n  \"engagement_score\": 0,\n  \"narrative_hook\": \"\",\n  \"content_structure\": \"\",\n  \"emotional_triggers\": \"\",\n  \"viral_elements\": \"\",\n  \"script_framework\": \"\",\n  \"hook_pattern\": \"\"\n}",
+        "batching": {
+          "batchSize": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [5040, -960],
+      "id": "analyze-viral-id",
+      "name": "Analyze Viral Content (Gemini)",
+      "settings": {
+        "errorHandling": "continueRegular"
+      },
+      "onError": "continue"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [5104, -752],
+      "id": "gemini-model-id",
+      "name": "Gemini 2.0 Flash",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "igaSdthsiO1WHIs5",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Gemini's JSON response and perfectly sync with clean metadata\nconst originalItems = $items(\"Clean Subtitles\");\n\nreturn $input.all().map((item, index) => {\n  const originalReel = originalItems[index] ? originalItems[index].json : {};\n  const rawText = item.json.text || item.json.output || '';\n  \n  let analysis = {};\n  try {\n    analysis = JSON.parse(rawText);\n  } catch(e) {\n    // Try to extract JSON block\n    const match = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (match) {\n      try { analysis = JSON.parse(match[0]); } catch(e2) {}\n    }\n  }\n\n  const toString = (val) => {\n    if (val === undefined || val === null) return '';\n    if (typeof val === 'object') return JSON.stringify(val);\n    return String(val);\n  };\n\n  return {\n    json: {\n      ...originalReel,\n      // Gemini Analysis\n      viral_score:        analysis.viral_score || 0,\n      engagement_score:   analysis.engagement_score || 0,\n      narrative_hook:     toString(analysis.narrative_hook || analysis.hook_pattern),\n      hook_pattern:       toString(analysis.hook_pattern   || analysis.narrative_hook),\n      content_structure:  toString(analysis.content_structure),\n      emotional_triggers: toString(analysis.emotional_triggers),\n      viral_elements:     toString(analysis.viral_elements),\n      script_framework:   toString(analysis.script_framework)\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [5344, -960],
+      "id": "parse-gemini-id",
+      "name": "Parse Gemini Analysis"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_VIRAL_DB }}",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ ($json.prompt || $json.content_code || 'Reel').substring(0, 50) }}",
+            "Post_ID": "={{ $json.content_code }}",
+            "Platform": "={{ $json.platform || 'Instagram' }}",
+            "Post_URL": "={{ $json.url }}",
+            "Content": "={{ $json.prompt }}",
+            "Engagement_Score": "={{ $json.engagement_score }}",
+            "Likes_Reactions_Upvotes": "={{ $json.likes }}",
+            "Comments": "={{ $json.comments }}",
+            "Views": "={{ $json.views }}",
+            "Shares": "={{ $json.shares }}",
+            "Shares_Awards": "={{ $json.shares }}",
+            "Saves": "={{ $json.saves }}",
+            "Followers": "={{ $json.followers }}",
+            "Engagement_Rate": "={{ $json.engagement_rate }}",
+            "Viral_Score": "={{ $json.viral_score }}",
+            "Hook_Pattern": "={{ $json.hook_pattern }}",
+            "Content_Structure": "={{ $json.content_structure }}",
+            "Emotional_Triggers": "={{ $json.emotional_triggers }}",
+            "Viral_Elements ": "={{ $json.viral_elements }}",
+            "Script_Framework": "={{ $json.script_framework }}",
+            "Transcript": "={{ $json.transcript }}",
+            "Status": "Analyzed",
+            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}"
+          }
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [5600, -960],
+      "id": "store-viral-db-id",
+      "name": "Store in Viral Content DB",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "h68hvDXg5Xigfz5P",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger (Every 12h)": {
+      "main": [
+        [
+          { "node": "Generate Global URLs", "type": "main", "index": 0 },
+          { "node": "Generate Reddit URLs", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Manual Discovery Trigger": {
+      "main": [
+        [
+          { "node": "Generate Global URLs", "type": "main", "index": 0 },
+          { "node": "Generate Reddit URLs", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Generate Global URLs": {
+      "main": [
+        [{ "node": "Fetch Google Trends RSS", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Google Trends RSS": {
+      "main": [
+        [{ "node": "Parse All Trends (Full Metadata)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse All Trends (Full Metadata)": {
+      "main": [
+        [{ "node": "Filter Viral Trends (500+)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Filter Viral Trends (500+)": {
+      "main": [
+        [{ "node": "Merge: Google Trends + Reddit", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate Reddit URLs": {
+      "main": [
+        [{ "node": "Fetch Reddit Posts", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Reddit Posts": {
+      "main": [
+        [{ "node": "Parse Reddit Posts", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Reddit Posts": {
+      "main": [
+        [{ "node": "Merge: Google Trends + Reddit", "type": "main", "index": 1 }]
+      ]
+    },
+    "Merge: Google Trends + Reddit": {
+      "main": [
+        [{ "node": "Gemini: Viral Scout", "type": "main", "index": 0 }]
+      ]
+    },
+    "Gemini 2.0 (Scout)": {
+      "ai_languageModel": [
+        [{ "node": "Gemini: Viral Scout", "type": "ai_languageModel", "index": 0 }]
+      ]
+    },
+    "Gemini: Viral Scout": {
+      "main": [
+        [{ "node": "Top Viral Bangers", "type": "main", "index": 0 }]
+      ]
+    },
+    "Top Viral Bangers": {
+      "main": [
+        [{ "node": "Store in Inspiration DB", "type": "main", "index": 0 }]
+      ]
+    },
+    "Store in Inspiration DB": {
+      "main": [[]]
+    },
+    "Trigger Scraping Run": {
+      "main": [
+        [{ "node": "Read Inspiration DB (Pending)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Read Inspiration DB (Pending)": {
+      "main": [
+        [{ "node": "Gemini: Hashtag Optimizer", "type": "main", "index": 0 }]
+      ]
+    },
+    "Gemini: Hashtag Optimizer": {
+      "main": [
+        [{ "node": "Parse Keywords", "type": "main", "index": 0 }]
+      ]
+    },
+    "Gemini 2.0 (Optimizer)": {
+      "ai_languageModel": [
+        [{ "node": "Gemini: Hashtag Optimizer", "type": "ai_languageModel", "index": 0 }]
+      ]
+    },
+    "Parse Keywords": {
+      "main": [
+        [{ "node": "Apify: Scrape Instagram Reels", "type": "main", "index": 0 }]
+      ]
+    },
+    "Apify: Scrape Instagram Reels": {
+      "main": [
+        [{ "node": "Normalize Reel Metadata", "type": "main", "index": 0 }]
+      ]
+    },
+    "Normalize Reel Metadata": {
+      "main": [
+        [{ "node": "Fetch Subtitles (SRT)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Subtitles (SRT)": {
+      "main": [
+        [{ "node": "Clean Subtitles", "type": "main", "index": 0 }]
+      ]
+    },
+    "Clean Subtitles": {
+      "main": [
+        [{ "node": "Analyze Viral Content (Gemini)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Gemini 2.0 Flash": {
+      "ai_languageModel": [
+        [{ "node": "Analyze Viral Content (Gemini)", "type": "ai_languageModel", "index": 0 }]
+      ]
+    },
+    "Analyze Viral Content (Gemini)": {
+      "main": [
+        [{ "node": "Parse Gemini Analysis", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Gemini Analysis": {
+      "main": [
+        [{ "node": "Store in Viral Content DB", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
