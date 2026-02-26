@@ -48,7 +48,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://api.apify.com/v2/acts/trudax~reddit-scraper-lite/runs?token={{ $env.APIFY_API_TOKEN }}",
+        "url": "=https://api.apify.com/v2/acts/trudax~reddit-scraper-lite/run-sync-get-dataset-items?token={{ $env.APIFY_API_TOKEN }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -61,10 +61,13 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ startUrls: $json.startUrls, maxItems: 50, skipComments: true, maxComments: 0, maxCommunitiesCount: 5, maxPostCount: 10, proxy: { useApifyProxy: true } }) }}",
-        "options": {}
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 600000
+        }
       },
       "id": "node-4",
-      "name": "Start Reddit Scraper",
+      "name": "Fetch Reddit via Apify",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
@@ -72,67 +75,6 @@
         400
       ],
       "onError": "continueRegular"
-    },
-    {
-      "parameters": {
-        "amount": 30
-      },
-      "id": "node-wait-reddit",
-      "name": "Wait 30s",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1,
-      "position": [
-        850,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "url": "=https://api.apify.com/v2/actor-runs/{{ $node[\"Start Reddit Scraper\"].json.data.id }}?token={{ $env.APIFY_API_TOKEN }}",
-        "options": {}
-      },
-      "id": "node-check-status-reddit",
-      "name": "Check Scraper Status",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        1030,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{ $json.data.status }}",
-              "value2": "SUCCEEDED"
-            }
-          ]
-        }
-      },
-      "id": "node-is-finished-reddit",
-      "name": "Is Scraper Finished?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        1210,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "url": "=https://api.apify.com/v2/datasets/{{ $node[\"Check Scraper Status\"].json.data.defaultDatasetId }}/items?token={{ $env.APIFY_API_TOKEN }}",
-        "options": {}
-      },
-      "id": "node-fetch-results-reddit",
-      "name": "Fetch Scraper Results",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        1400,
-        400
-      ]
     },
     {
       "parameters": {
@@ -782,65 +724,14 @@
       "main": [
         [
           {
-            "node": "Start Reddit Scraper",
+            "node": "Fetch Reddit via Apify",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Start Reddit Scraper": {
-      "main": [
-        [
-          {
-            "node": "Wait 30s",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait 30s": {
-      "main": [
-        [
-          {
-            "node": "Check Scraper Status",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check Scraper Status": {
-      "main": [
-        [
-          {
-            "node": "Is Scraper Finished?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Is Scraper Finished?": {
-      "main": [
-        [
-          {
-            "node": "Fetch Scraper Results",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Wait 30s",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch Scraper Results": {
+    "Fetch Reddit via Apify": {
       "main": [
         [
           {

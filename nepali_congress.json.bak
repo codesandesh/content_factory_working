@@ -1,0 +1,710 @@
+{
+  "name": "NC Campaign - Smart Crawl + Nepali Post Generator",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "node-002",
+      "name": "Schedule (Every 6hrs)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        560
+      ],
+      "notes": "Auto-run every 6 hours. Disable if you only want manual runs."
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "YOUR_GOOGLE_SHEET_URL_HERE"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Sources"
+        },
+        "options": {
+          "where": {
+            "values": [
+              {
+                "lookupColumn": "Status",
+                "lookupValue": "Pending"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node-003",
+      "name": "Read Sources Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        360,
+        400
+      ],
+      "notes": "Reads rows where Status = Pending\n\nSHEET COLUMNS NEEDED:\nA: Type (URL or Keyword)\nB: Source (the URL or keyword text)\nC: Category (e.g. Infrastructure, Health, Education)\nD: Status (Pending / Done / Skipped)\nE: Notes (optional context)"
+    },
+    {
+      "parameters": {
+        "batchSize": 3,
+        "options": {}
+      },
+      "id": "node-004",
+      "name": "Process 3 at a Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        600,
+        400
+      ],
+      "notes": "Process 3 sources per batch to avoid rate limits"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "type-check",
+              "leftValue": "={{ $json['Type'] }}",
+              "rightValue": "URL",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-005",
+      "name": "URL or Keyword?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        840,
+        400
+      ],
+      "notes": "Routes to direct URL scrape OR keyword-based search"
+    },
+    {
+      "parameters": {
+        "url": "https://api.firecrawl.dev/v1/scrape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_FIRECRAWL_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"url\": \"{{ $json['Source'] }}\",\n  \"formats\": [\"markdown\"],\n  \"onlyMainContent\": true,\n  \"excludeTags\": [\"nav\", \"footer\", \"ads\", \"script\", \"style\"],\n  \"waitFor\": 2000\n}",
+        "options": {}
+      },
+      "id": "node-006",
+      "name": "Scrape Direct URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        260
+      ],
+      "notes": "Scrapes the approved URL directly using Firecrawl"
+    },
+    {
+      "parameters": {
+        "url": "https://api.tavily.com/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"api_key\": \"YOUR_TAVILY_API_KEY\",\n  \"query\": \"{{ $json['Source'] }} Nepali Congress Nepal sarkaar kaam\",\n  \"search_depth\": \"advanced\",\n  \"max_results\": 5,\n  \"include_domains\": [\n    \"kathmandupost.com\",\n    \"setopati.com\",\n    \"thehimalayantimes.com\",\n    \"onlinekhabar.com\",\n    \"myrepublica.nagariknetwork.com\",\n    \"ratopati.com\",\n    \"nagariknetwork.com\",\n    \"nagariknews.nagariknetwork.com\",\n    \"nepal.gov.np\",\n    \"mof.gov.np\",\n    \"en.wikipedia.org\"\n  ]\n}",
+        "options": {}
+      },
+      "id": "node-007",
+      "name": "Keyword Web Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        540
+      ],
+      "notes": "Searches approved news sites only for the keyword"
+    },
+    {
+      "parameters": {
+        "url": "https://api.firecrawl.dev/v1/scrape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_FIRECRAWL_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"url\": \"{{ $json.results[0].url }}\",\n  \"formats\": [\"markdown\"],\n  \"onlyMainContent\": true,\n  \"excludeTags\": [\"nav\", \"footer\", \"ads\", \"script\", \"style\"],\n  \"waitFor\": 2000\n}",
+        "options": {}
+      },
+      "id": "node-008",
+      "name": "Scrape Top Result URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        540
+      ],
+      "notes": "Scrapes the top search result from Tavily"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge URL scrape and keyword scrape paths into one format\nconst item = $input.item.json;\n\nlet markdown = '';\nlet sourceUrl = '';\n\n// Handle Firecrawl direct URL scrape response\nif (item.data && item.data.markdown) {\n  markdown = item.data.markdown;\n  sourceUrl = item.data.metadata?.sourceURL || item.data.metadata?.url || 'Unknown URL';\n}\n// Handle Firecrawl v1 response format\nelse if (item.markdown) {\n  markdown = item.markdown;\n  sourceUrl = item.metadata?.sourceURL || 'Unknown URL';\n}\n\n// Clean the markdown - remove excessive whitespace\nmarkdown = markdown\n  .replace(/\\n{3,}/g, '\\n\\n')\n  .replace(/#{4,}/g, '###')\n  .trim()\n  .substring(0, 8000); // limit to 8000 chars for Claude context\n\nreturn [{\n  json: {\n    source_type: 'scraped',\n    original_type: $('Read Sources Sheet').item.json['Type'],\n    original_source: $('Read Sources Sheet').item.json['Source'],\n    category: $('Read Sources Sheet').item.json['Category'] || 'General',\n    source_url: sourceUrl,\n    raw_content: markdown,\n    char_count: markdown.length\n  }\n}];"
+      },
+      "id": "node-009",
+      "name": "Normalize Scraped Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        400
+      ],
+      "notes": "Merges both URL and keyword paths into the same data format"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "has-content",
+              "leftValue": "={{ $json.char_count }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-010",
+      "name": "Enough Content?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        400
+      ],
+      "notes": "Skip if scraped content is too short to be useful"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "model": "claude-opus-4-5",
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "=You are a STRICT content filter for a political campaign focused ONLY on POSITIVE achievements.\n\nCategory: {{ $json.category }}\nSource URL: {{ $json.source_url }}\n\nScraped Content:\n{{ $json.raw_content }}\n\n---\nYour task: EXTRACT only POSITIVE, CONSTRUCTIVE content from this article.\n\n✅ INCLUDE only:\n- Roads, bridges, highways built or inaugurated\n- Schools, hospitals, health posts constructed\n- Electricity projects, hydropower, solar completed\n- Water supply, irrigation projects delivered\n- Digital/IT initiatives launched\n- Social welfare programs (scholarships, pensions, insurance)\n- Foreign investment brought in\n- Trade agreements signed\n- Disaster relief distributed\n- Poverty reduction statistics\n- Women/youth empowerment programs\n- Agricultural support programs\n- Any COMPLETED government work with measurable impact\n\n❌ STRICTLY EXCLUDE (output NOTHING about):\n- Corruption, scams, embezzlement\n- Arrests, charges, court cases\n- Party conflicts, fights, splits\n- Protests, strikes, bandhs\n- Criticism of any party or leader\n- Promises not yet fulfilled\n- Any negative news\n- Deaths, accidents, disasters\n- Allegations or accusations of any kind\n\nIf the content contains NO positive/development work at all, respond with exactly: NO_POSITIVE_CONTENT\n\nOtherwise, list 4-6 specific POSITIVE facts with:\n- What was done\n- Where (district/province)\n- When (year BS or AD)\n- Who benefited (how many people / which communities)\n- Any numbers/statistics\n\nFormat as numbered list. Be specific and factual only."
+            }
+          ]
+        },
+        "options": {
+          "maxTokensToSample": 1500,
+          "temperature": 0.2
+        }
+      },
+      "id": "node-011",
+      "name": "Claude - Filter Positive Only",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        2040,
+        300
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "YOUR_ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic account"
+        }
+      },
+      "notes": "First Claude call: strict filter - only extracts positive development content"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "check-positive",
+              "leftValue": "={{ $json.content[0].text }}",
+              "rightValue": "NO_POSITIVE_CONTENT",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-012",
+      "name": "Positive Content Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2280,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "model": "claude-opus-4-5",
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "=तपाईं नेपाली भाषामा सामाजिक सञ्जालका लागि सकारात्मक र प्रेरणादायी पोस्ट लेख्ने विशेषज्ञ हुनुहुन्छ।\n\nश्रेणी: {{ $('Normalize Scraped Content').item.json.category }}\nस्रोत: {{ $('Normalize Scraped Content').item.json.source_url }}\n\nसकारात्मक तथ्यहरू:\n{{ $('Claude - Filter Positive Only').item.json.content[0].text }}\n\n---\nमाथिका तथ्यहरूको आधारमा नेपालीमा १० फरक-फरक सामाजिक सञ्जाल पोस्ट बनाउनुहोस्।\n\n✅ आवश्यक नियमहरू:\n- सम्पूर्ण पोस्ट नेपाली भाषामा (देवनागरी लिपि)\n- प्रत्येक पोस्ट ८०-२५० शब्द\n- वास्तविक तथ्य, तारिख, नाम र संख्या उल्लेख गर्नुहोस्\n- सकारात्मक, उत्साहवर्धक र गर्वान्वित स्वरमा लेख्नुहोस्\n- जनताले गर्व गर्न सकून् यस्तो भाव राख्नुहोस्\n\n❌ यी कुरा लेख्नु हुँदैन:\n- भ्रष्टाचार, घोटाला वा नकारात्मक कुरा\n- कुनै पनि दल वा नेताको आलोचना\n- अपूर्ण वाचाहरू\n- कुनै पनि नकारात्मक शब्द\n\n📝 पोस्टका प्रकारहरू (प्रत्येक २ वटा):\n१. 🏗️ विकास कथा - के बन्यो, कहाँ बन्यो, कसलाई फाइदा भयो\n२. 📊 तथ्यांक - संख्या र उपलब्धि देखाउने\n३. 👥 मानवीय कथा - आम जनताको जीवन कसरी सुध्रियो\n४. 🌟 गर्व पल - \"हाम्रो देश अगाडि बढ्दैछ\" भावना\n५. 📣 जागरण - \"यो कुरा सबैले जान्नुपर्छ\" प्रकारको\n\n📌 अन्त्यमा थप्नुहोस्:\n- सम्बन्धित इमोजी\n- ह्यासट्यागहरू: #नेपालको_विकास #नेपालीकांग्रेस #परिवर्तन_देखिँदैछ #हाम्रो_उपलब्धि #जनताको_सरकार\n- \"यो पोस्ट सेयर गर्नुहोस् 🇳🇵\" भनेर सकाउनुहोस्\n\nढाँचा:\n---पोस्ट १---\n[पोस्टको सामग्री]\n---पोस्ट २---\n[पोस्टको सामग्री]\n...पोस्ट १० सम्म"
+            }
+          ]
+        },
+        "options": {
+          "maxTokensToSample": 5000,
+          "temperature": 0.7
+        }
+      },
+      "id": "node-013",
+      "name": "Claude - Write 10 Nepali Posts",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        2520,
+        200
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "YOUR_ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic account"
+        }
+      },
+      "notes": "Second Claude call: writes 10 emotional, positive Nepali posts"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawOutput = $input.item.json.content[0].text;\nconst category = $('Normalize Scraped Content').item.json.category;\nconst sourceUrl = $('Normalize Scraped Content').item.json.source_url;\nconst originalSource = $('Normalize Scraped Content').item.json.original_source;\nconst facts = $('Claude - Filter Positive Only').item.json.content[0].text;\n\n// Parse posts by marker\nconst postRegex = /---पोस्ट (\\d+)---([\\s\\S]*?)(?=---पोस्ट \\d+---|$)/g;\nconst posts = [];\nlet match;\nlet postNumber = 0;\n\nwhile ((match = postRegex.exec(rawOutput)) !== null) {\n  const postText = match[2].trim();\n  if (postText.length > 30) {\n    postNumber++;\n    \n    // Determine platform based on word count\n    const wordCount = postText.split(' ').length;\n    let platform;\n    if (wordCount < 80) platform = 'X (Twitter)';\n    else if (wordCount < 150) platform = 'Instagram';\n    else platform = 'Facebook';\n    \n    posts.push({\n      post_number: postNumber,\n      category: category,\n      post_nepali: postText,\n      platform: platform,\n      word_count: wordCount,\n      source_url: sourceUrl,\n      original_source: originalSource,\n      facts_base: facts.substring(0, 400) + '...',\n      generated_date: new Date().toISOString().split('T')[0],\n      review_status: 'Pending Review',\n      approved: 'No'\n    });\n  }\n}\n\nconsole.log(`Parsed ${posts.length} posts from Claude output`);\nreturn posts.map(p => ({ json: p }));"
+      },
+      "id": "node-014",
+      "name": "Parse Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2760,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "YOUR_GOOGLE_SHEET_URL_HERE"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "GeneratedPosts"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Post #": "={{ $json.post_number }}",
+            "Category": "={{ $json.category }}",
+            "Nepali Post": "={{ $json.post_nepali }}",
+            "Platform": "={{ $json.platform }}",
+            "Word Count": "={{ $json.word_count }}",
+            "Source URL": "={{ $json.source_url }}",
+            "Original Source": "={{ $json.original_source }}",
+            "Facts Used": "={{ $json.facts_base }}",
+            "Generated Date": "={{ $json.generated_date }}",
+            "Review Status": "={{ $json.review_status }}",
+            "Approved": "={{ $json.approved }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "node-015",
+      "name": "Save Posts to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        3000,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "YOUR_GOOGLE_SHEET_URL_HERE"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Sources"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Done ",
+            "Last Run": "={{ $now.format('yyyy-MM-dd HH:mm') }}"
+          }
+        },
+        "where": {
+          "values": [
+            {
+              "lookupColumn": "Source",
+              "lookupValue": "={{ $('Normalize Scraped Content').item.json.original_source }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-016",
+      "name": "✅ Mark Source as Done",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        3240,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $('Read Sources Sheet').item.json['Source'] || 'Unknown';\nconst type = $('Read Sources Sheet').item.json['Type'] || 'Unknown';\nconsole.log(`SKIPPED: No positive content found for ${type}: ${source}`);\nreturn [{ json: { skipped: true, source, type, reason: 'No positive/development content found after filtering', timestamp: new Date().toISOString() } }];"
+      },
+      "id": "node-017",
+      "name": "⏭Log: No Positive Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2520,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "YOUR_GOOGLE_SHEET_URL_HERE"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Sources"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Skipped - No positive content",
+            "Last Run": "={{ $now.format('yyyy-MM-dd HH:mm') }}"
+          }
+        },
+        "where": {
+          "values": [
+            {
+              "lookupColumn": "Source",
+              "lookupValue": "={{ $('Read Sources Sheet').item.json['Source'] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-018",
+      "name": "Mark Skipped in Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2760,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $('Read Sources Sheet').item.json['Source'] || 'Unknown';\nconsole.log(`SKIPPED: Content too short for: ${source}`);\nreturn [{ json: { skipped: true, source, reason: 'Scraped content too short (<200 chars)', timestamp: new Date().toISOString() } }];"
+      },
+      "id": "node-019",
+      "name": "⏭Log: Content Too Short",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2040,
+        520
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Sources Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule (Every 6hrs)": {
+      "main": [
+        [
+          {
+            "node": "Read Sources Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sources Sheet": {
+      "main": [
+        [
+          {
+            "node": " Process 3 at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process 3 at a Time": {
+      "main": [
+        [
+          {
+            "node": "URL or Keyword?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "URL or Keyword?": {
+      "main": [
+        [
+          {
+            "node": "Keyword Web Search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scrape Direct URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Direct URL": {
+      "main": [
+        [
+          {
+            "node": "Normalize Scraped Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keyword Web Search": {
+      "main": [
+        [
+          {
+            "node": "Scrape Top Result URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Top Result URL": {
+      "main": [
+        [
+          {
+            "node": "Normalize Scraped Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Scraped Content": {
+      "main": [
+        [
+          {
+            "node": "Enough Content?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enough Content?": {
+      "main": [
+        [
+          {
+            "node": "⏭Log: Content Too Short",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Claude - Filter Positive Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude - Filter Positive Only": {
+      "main": [
+        [
+          {
+            "node": "Positive Content Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Positive Content Found?": {
+      "main": [
+        [
+          {
+            "node": "⏭Log: No Positive Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Claude - Write 10 Nepali Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude - Write 10 Nepali Posts": {
+      "main": [
+        [
+          {
+            "node": "Parse Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Posts": {
+      "main": [
+        [
+          {
+            "node": "Save Posts to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Posts to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Mark Source as Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏭Log: No Positive Content": {
+      "main": [
+        [
+          {
+            "node": "Mark Skipped in Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": [],
+  "name": "NC Campaign - Smart Crawl + Nepali Post Generator"
+}

@@ -1,0 +1,775 @@
+{
+  "name": "NC Campaign - Smart Crawl + Nepali Post Generator (Airtable) \u2014 FIXED loop",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "node-002",
+      "name": "Schedule (Every 6hrs)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "application": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.CONGRESS_AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $env.CONGRESS_AT_TABLE_SOURCES }}"
+        },
+        "filterByFormula": "{Status}='Pending'",
+        "options": {}
+      },
+      "id": "node-003",
+      "name": "Read Sources Table",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        360,
+        400
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "Uas1HNt2b74zrNBP",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 3,
+        "options": {}
+      },
+      "id": "node-004",
+      "name": "Process 3 at a Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        600,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.fields['Type'] }}",
+              "value2": "URL",
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "id": "node-005",
+      "name": "URL or Keyword?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        840,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.firecrawl.dev/v1/scrape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.FIRECRAWL_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"url\": \"{{ $json.fields.Source }}\",\n  \"formats\": [\"markdown\"],\n  \"onlyMainContent\": true,\n  \"excludeTags\": [\"nav\", \"footer\", \"ads\", \"script\", \"style\"],\n  \"waitFor\": 2000\n}"
+      },
+      "id": "node-006",
+      "name": "Scrape Direct URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  \"api_key\": $env.TAVILY_API_KEY,\n  \"query\": ($json.fields.Source || '') + \" Nepali Congress Nepal sarkaar kaam\",\n  \"search_depth\": \"advanced\",\n  \"max_results\": 5,\n  \"include_domains\": [\"kathmandupost.com\", \"setopati.com\", \"thehimalayantimes.com\", \"onlinekhabar.com\", \"ratopati.com\", \"nepal.gov.np\", \"mof.gov.np\"]\n}) }}"
+      },
+      "id": "node-007",
+      "name": "Keyword Web Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.firecrawl.dev/v1/scrape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.FIRECRAWL_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"url\": \"{{ $json.results[0].url }}\",\n  \"formats\": [\"markdown\"],\n  \"onlyMainContent\": true,\n  \"excludeTags\": [\"nav\", \"footer\", \"ads\", \"script\", \"style\"],\n  \"waitFor\": 2000\n}"
+      },
+      "id": "node-008",
+      "name": "Scrape Top Result URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\nconst batchItem = $('Process 3 at a Time').item.json;\nconst fields = batchItem.fields || batchItem;\n\nlet markdown = '';\nlet sourceUrl = '';\n\nif (item.data && item.data.markdown) {\n  markdown = item.data.markdown;\n  sourceUrl = item.data.metadata?.sourceURL || item.data.metadata?.url || 'Unknown URL';\n} else if (item.markdown) {\n  markdown = item.markdown;\n  sourceUrl = item.metadata?.sourceURL || 'Unknown URL';\n}\n\nmarkdown = (markdown || '').replace(/\\n{3,}/g, '\\n\\n').replace(/#{4,}/g, '###').trim().substring(0, 8000);\n\nreturn [{\n  json: {\n    source_type: 'scraped',\n    original_type: fields['Type'] || 'Unknown',\n    original_source: fields['Source'] || 'Unknown',\n    category: fields['Category'] || 'General',\n    airtable_record_id: batchItem.id || batchItem.recordID || (batchItem.fields ? batchItem.id : ''),\n    source_url: sourceUrl,\n    raw_content: markdown,\n    char_count: markdown.length\n  }\n}];"
+      },
+      "id": "node-009",
+      "name": "Normalize Scraped Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.char_count }}",
+              "value2": 200,
+              "operation": "largerEqual"
+            }
+          ]
+        }
+      },
+      "id": "node-010",
+      "name": "Enough Content?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1800,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a STRICT content filter for a political campaign focused ONLY on POSITIVE achievements.\n\nCategory: {{ $json.category }}\nSource URL: {{ $json.source_url }}\n\nScraped Content:\n{{ $json.raw_content }}\n\n---\nYour task: EXTRACT only POSITIVE, CONSTRUCTIVE content from this article.\n\n\u2705 INCLUDE only:\n- Roads, bridges, highways built or inaugurated\n- Schools, hospitals, health posts constructed\n- Electricity projects, hydropower, solar completed\n- Water supply, irrigation projects delivered\n- Digital/IT initiatives launched\n- Social welfare programs (scholarships, pensions, insurance)\n- Foreign investment brought in\n- Trade agreements signed\n- Disaster relief distributed\n- Poverty reduction statistics\n- Women/youth empowerment programs\n- Agricultural support programs\n- Any COMPLETED government work with measurable impact\n\n\u274c STRICTLY EXCLUDE (output NOTHING about):\n- Corruption, scams, embezzlement\n- Arrests, charges, court cases\n- Party conflicts, fights, splits\n- Protests, strikes, bandhs\n- Criticism of any party or leader\n- Promises not yet fulfilled\n- Any negative news\n- Deaths, accidents, disasters\n- Allegations or accusations of any kind\n\nIf the content contains NO positive/development work at all, respond with exactly: NO_POSITIVE_CONTENT\n\nOtherwise, list 4-6 specific POSITIVE facts with:\n- What was done\n- Where (district/province)\n- When (year BS or AD)\n- Who benefited (how many people / which communities)\n- Any numbers/statistics\n\nFormat as numbered list. Be specific and factual only."
+      },
+      "id": "node-011",
+      "name": "Gemini - Filter Positive Only",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        2040,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "node-gemini-model",
+      "name": "Gemini Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        460
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "vbhLIH8I52VXHFtc",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.text }}",
+              "value2": "NO_POSITIVE_CONTENT",
+              "operation": "contains"
+            }
+          ]
+        }
+      },
+      "id": "node-012",
+      "name": "No Positive Content?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2280,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=\u0924\u092a\u093e\u0908\u0902 \u0928\u0947\u092a\u093e\u0932\u0940 \u092d\u093e\u0937\u093e\u092e\u093e \u0938\u093e\u092e\u093e\u091c\u093f\u0915 \u0938\u091e\u094d\u091c\u093e\u0932\u0915\u093e \u0932\u093e\u0917\u093f \u0938\u0915\u093e\u0930\u093e\u0924\u094d\u092e\u0915 \u0930 \u092a\u094d\u0930\u0947\u0930\u0923\u093e\u0926\u093e\u092f\u0940 \u092a\u094b\u0938\u094d\u091f \u0932\u0947\u0916\u094d\u0928\u0947 \u0935\u093f\u0936\u0947\u0937\u091c\u094d\u091e \u0939\u0941\u0928\u0941\u0939\u0941\u0928\u094d\u091b\u0964\n\n\u0936\u094d\u0930\u0947\u0923\u0940: {{ $('Normalize Scraped Content').item.json.category }}\n\u0938\u094d\u0930\u094b\u0924: {{ $('Normalize Scraped Content').item.json.source_url }}\n\n\u0938\u0915\u093e\u0930\u093e\u0924\u094d\u092e\u0915 \u0924\u0925\u094d\u092f\u0939\u0930\u0942:\n{{ $('Gemini - Filter Positive Only').item.json.text }}\n\n---\n\u092e\u093e\u0925\u093f\u0915\u093e \u0924\u0925\u094d\u092f\u0939\u0930\u0942\u0915\u094b \u0906\u0927\u093e\u0930\u092e\u093e \u0928\u0947\u092a\u093e\u0932\u0940\u092e\u093e \u0967\u0966 \u092b\u0930\u0915-\u092b\u0930\u0915 \u0938\u093e\u092e\u093e\u091c\u093f\u0915 \u0938\u091e\u094d\u091c\u093e\u0932 \u092a\u094b\u0938\u094d\u091f \u092c\u0928\u093e\u0909\u0928\u0941\u0939\u094b\u0938\u094d\u0964\n\n\u2705 \u0906\u0935\u0936\u094d\u092f\u0915 \u0928\u093f\u092f\u092e\u0939\u0930\u0942:\n- \u0938\u092e\u094d\u092a\u0942\u0930\u094d\u0923 \u092a\u094b\u0938\u094d\u091f \u0928\u0947\u092a\u093e\u0932\u0940 \u092d\u093e\u0937\u093e\u092e\u093e (\u0926\u0947\u0935\u0928\u093e\u0917\u0930\u0940 \u0932\u093f\u092a\u093f)\n- \u092a\u094d\u0930\u0924\u094d\u092f\u0947\u0915 \u092a\u094b\u0938\u094d\u091f \u0968\u0966-\u0969\u096b\u0966 \u0936\u092c\u094d\u0926\n- \u0935\u093e\u0938\u094d\u0924\u0935\u093f\u0915 \u0924\u0925\u094d\u092f, \u0924\u093e\u0930\u093f\u0916, \u0928\u093e\u092e \u0930 \u0938\u0902\u0916\u094d\u092f\u093e \u0909\u0932\u094d\u0932\u0947\u0916 \u0917\u0930\u094d\u0928\u0941\u0939\u094b\u0938\u094d\n- \u0938\u0915\u093e\u0930\u093e\u0924\u094d\u092e\u0915, \u0909\u0924\u094d\u0938\u093e\u0939\u0935\u0930\u094d\u0927\u0915 \u0930 \u0917\u0930\u094d\u0935\u093e\u0928\u094d\u0935\u093f\u0924 \u0938\u094d\u0935\u0930\u092e\u093e \u0932\u0947\u0916\u094d\u0928\u0941\u0939\u094b\u0938\u094d\n- \u091c\u0928\u0924\u093e\u0932\u0947 \u0917\u0930\u094d\u0935 \u0917\u0930\u094d\u0928 \u0938\u0915\u0942\u0928\u094d \u092f\u0938\u094d\u0924\u094b \u092d\u093e\u0935\u0928\u093e \u0930\u093e\u0916\u0941\u0939\u094b\u0938\u094d\n\n\u274c \u092f\u0940 \u0915\u0941\u0930\u093e \u0932\u0947\u0916\u094d\u0928\u0941 \u0939\u0941\u0901\u0926\u0948\u0928:\n- \u092d\u094d\u0930\u0937\u094d\u091f\u093e\u091a\u093e\u0930, \u0918\u094b\u091f\u093e\u0932\u093e \u0935\u093e \u0928\u0915\u093e\u0930\u093e\u0924\u094d\u092e\u0915 \u0915\u0941\u0930\u093e\n- \u0915\u0941\u0928\u0948 \u092a\u0928\u093f \u0926\u0932 \u0935\u093e \u0928\u0947\u0924\u093e\u0915\u094b \u0906\u0932\u094b\u091a\u0928\u093e\n- \u0905\u092a\u0942\u0930\u094d\u0923 \u0935\u093e\u091a\u093e\u0939\u0930\u0942\n- \u0915\u0941\u0928\u0948 \u092a\u0928\u093f \u0928\u0915\u093e\u0930\u093e\u0924\u094d\u092e\u0915 \u0936\u092c\u094d\u0926\n\n\ud83d\udcdd \u092a\u094b\u0938\u094d\u091f\u0915\u093e \u092a\u094d\u0930\u0915\u093e\u0930\u0939\u0930\u0942 (\u092a\u094d\u0930\u0924\u094d\u092f\u0947\u0915 \u0968 \u0935\u091f\u093e):\n\u0967. \ud83c\udfd7\ufe0f \u0935\u093f\u0915\u093e\u0938 \u0915\u0925\u093e - \u0915\u0947 \u092c\u0928\u094d\u092f\u094b, \u0915\u0939\u093e\u0901 \u092c\u0928\u094d\u092f\u094b, \u0915\u0938\u0932\u093e\u0908 \u092b\u093e\u0907\u0926\u093e \u092d\u092f\u094b\n\u0968. \ud83d\udcca \u0924\u0925\u094d\u092f\u093e\u0919\u094d\u0915 - \u0938\u0902\u0916\u094d\u092f\u093e \u0930 \u0909\u092a\u0932\u092c\u094d\u0927\u093f \u0926\u0947\u0916\u093e\u0909\u0928\u0947\n\u0969. \ud83d\udc65 \u092e\u093e\u0928\u0935\u0940\u092f \u0915\u0925\u093e - \u0906\u092e \u091c\u0928\u0924\u093e\u0915\u094b \u091c\u0940\u0935\u0928 \u0915\u0938\u0930\u0940 \u0938\u0941\u0927\u093e\u0930\u093f\u092f\u094b\n\u096a. \ud83c\udf1f \u0917\u0930\u094d\u0935 \u092a\u0932 - \"\u0939\u093e\u092e\u094d\u0930\u094b \u0926\u0947\u0936 \u0905\u0917\u093e\u0921\u093f \u092c\u0922\u094d\u0926\u0948\u091b\" \u092d\u093e\u0935\u0928\u093e\n\u096b. \ud83d\udce2 \u091c\u093e\u0917\u0930\u0923 - \"\u092f\u094b \u0915\u0941\u0930\u093e \u0938\u092c\u0948\u0932\u0947 \u091c\u093e\u0928\u094d\u0928\u0941\u092a\u0930\u094d\u091b\" \u092a\u094d\u0930\u0915\u093e\u0930\u0915\u094b\n\n\ud83d\udccc \u0905\u0928\u094d\u0924\u094d\u092f\u092e\u093e \u0925\u092a\u094d\u0928\u0941\u0939\u094b\u0938\u094d:\n- \u0938\u092e\u094d\u092c\u0928\u094d\u0927\u093f\u0924 \u0907\u092e\u094b\u091c\u0940\n- \u0939\u094d\u092f\u093e\u0938\u091f\u094d\u092f\u093e\u0917\u0939\u0930\u0942: #\u0928\u0947\u092a\u093e\u0932\u0915\u094b_\u0935\u093f\u0915\u093e\u0938 #\u0928\u0947\u092a\u093e\u0932\u0940\u0915\u093e\u0901\u0917\u094d\u0930\u0947\u0938 #\u092a\u0930\u093f\u0935\u0930\u094d\u0924\u0928_\u0926\u0947\u0916\u093f\u0901\u0926\u0948\u091b #\u0939\u093e\u092e\u094d\u0930\u094b_\u0909\u092a\u0932\u092c\u094d\u0927\u093f #\u091c\u0928\u0924\u093e\u0915\u094b_\u0938\u0930\u0915\u093e\u0930\n- \"\u092f\u094b \u092a\u094b\u0938\u094d\u091f \u0938\u0947\u092f\u0930 \u0917\u0930\u094d\u0928\u0941\u0939\u094b\u0938\u094d \ud83c\uddf3\ud83c\uddf5\" \u092d\u0928\u0947\u0930 \u0938\u0915\u093e\u0909\u0928\u0941\u0939\u094b\u0938\u094d\n\n\u0922\u093e\u0901\u091a\u093e:\n---\u092a\u094b\u0938\u094d\u091f \u0967---\n[Content]\n...\u092a\u094b\u0938\u094d\u091f \u0967\u0966 \u0938\u092e\u094d\u092e"
+      },
+      "id": "node-013",
+      "name": "Gemini - Write 10 Nepali Posts",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        2520,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawOutput = $input.item.json.text;\nconst normalizedData = $('Normalize Scraped Content').item.json;\nconst facts = $('Gemini - Filter Positive Only').item.json.text;\n\n// Matches '---\u092a\u094b\u0938\u094d\u091f [Digit]---' with support for Devanagari digits\nconst postRegex = /---\\s*\u092a\u094b\u0938\u094d\u091f\\s*[\\d\u0967\u0968\u0969\u096a\u096b\u096c\u096d\u096e\u096f\u0966]+\\s*---([\\s\\S]*?)(?=---\\s*\u092a\u094b\u0938\u094d\u091f\\s*[\\d\u0967\u0968\u0969\u096a\u096b\u096c\u096d\u096e\u096f\u0966]+\\s*---|$)/g;\nconst posts = [];\nlet match;\nlet postNumber = 0;\n\nwhile ((match = postRegex.exec(rawOutput)) !== null) {\n  const postText = match[1].trim();\n  if (postText.length > 20) {\n    postNumber++;\n    const wordCount = postText.split(/\\s+/).length;\n    let platform = 'Facebook';\n    if (wordCount < 80) platform = 'X (Twitter)';\n    else if (wordCount < 150) platform = 'Instagram';\n\n    posts.push({\n      'Post Number': postNumber,\n      'Category': normalizedData.category,\n      'Nepali Post': postText,\n      'Platform': platform,\n      'Word Count': wordCount,\n      'Source URL': normalizedData.source_url,\n      'Original Source': normalizedData.original_source,\n      'Airtable Record ID': normalizedData.airtable_record_id,\n      'Facts Used': facts.substring(0, 400) + '...',\n      'Generated Date': new Date().toISOString().split('T')[0],\n      'Review Status': 'Pending Review',\n      'Approved': false\n    });\n  }\n}\n\nif (posts.length === 0) {\n  return [{ json: { error: 'No posts parsed', rawOutput: rawOutput.substring(0, 500) } }];\n}\n\nreturn posts.map(p => ({ json: p }));"
+      },
+      "id": "node-014",
+      "name": "Parse Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2760,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "application": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.CONGRESS_AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $env.CONGRESS_AT_TABLE_GENERATED_POSTS }}"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Post Number": "={{ $json['Post Number'] }}",
+            "Category": "={{ $json['Category'] }}",
+            "Nepali Post": "={{ $json['Nepali Post'] }}",
+            "Platform": "={{ $json['Platform'] }}",
+            "Word Count": "={{ $json['Word Count'] }}",
+            "Source URL": "={{ $json['Source URL'] }}",
+            "Original Source": "={{ $json['Original Source'] }}",
+            "Facts Used": "={{ $json['Facts Used'] }}",
+            "Generated Date": "={{ $json['Generated Date'] }}",
+            "Review Status": "={{ $json['Review Status'] }}",
+            "Approved": "={{ $json['Approved'] }}"
+          }
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "node-015",
+      "name": "Save Posts to Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        3000,
+        200
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "Uas1HNt2b74zrNBP",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "application": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.CONGRESS_AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $env.CONGRESS_AT_TABLE_SOURCES }}"
+        },
+        "id": "={{ $('Normalize Scraped Content').item.json.airtable_record_id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Done",
+            "Last Run": "={{ $now.format('yyyy-MM-dd HH:mm') }}"
+          }
+        }
+      },
+      "id": "node-016",
+      "name": "Mark Source as Done",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        3240,
+        200
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "Uas1HNt2b74zrNBP",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $('Process 3 at a Time').item.json;\nconst fields = item.fields || item;\nreturn [{ json: { skipped: true, source: fields['Source'] || 'Unknown', reason: 'No positive content found', timestamp: new Date().toISOString() } }];"
+      },
+      "id": "node-017",
+      "name": "Log: No Positive Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2520,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "application": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.CONGRESS_AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $env.CONGRESS_AT_TABLE_SOURCES }}"
+        },
+        "id": "={{ $('Normalize Scraped Content').item.json.airtable_record_id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Skipped - No positive content",
+            "Last Run": "={{ $now.format('yyyy-MM-dd HH:mm') }}"
+          }
+        }
+      },
+      "id": "node-018",
+      "name": "Mark Skipped in Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        2760,
+        420
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "Uas1HNt2b74zrNBP",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $('Process 3 at a Time').item.json;\nconst fields = item.fields || item;\nreturn [{ json: { skipped: true, source: fields['Source'] || 'Unknown', reason: 'Content too short', timestamp: new Date().toISOString() } }];"
+      },
+      "id": "node-019",
+      "name": "Log: Content Too Short",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2040,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "application": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.CONGRESS_AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $env.CONGRESS_AT_TABLE_SOURCES }}"
+        },
+        "id": "={{ $('Normalize Scraped Content').item.json.airtable_record_id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Skipped - Content too short",
+            "Last Run": "={{ $now.format('yyyy-MM-dd HH:mm') }}"
+          }
+        }
+      },
+      "id": "node-020",
+      "name": "Mark Too Short in Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        2280,
+        520
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "Uas1HNt2b74zrNBP",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "node-loop-done-2025",
+      "name": "Loop Completion \u2013 OK",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        600,
+        640
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Sources Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule (Every 6hrs)": {
+      "main": [
+        [
+          {
+            "node": "Read Sources Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sources Table": {
+      "main": [
+        [
+          {
+            "node": "Process 3 at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process 3 at a Time": {
+      "main": [
+        [
+          {
+            "node": "URL or Keyword?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Completion \u2013 OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "URL or Keyword?": {
+      "main": [
+        [
+          {
+            "node": "Scrape Direct URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Keyword Web Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Direct URL": {
+      "main": [
+        [
+          {
+            "node": "Normalize Scraped Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keyword Web Search": {
+      "main": [
+        [
+          {
+            "node": "Scrape Top Result URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Top Result URL": {
+      "main": [
+        [
+          {
+            "node": "Normalize Scraped Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Scraped Content": {
+      "main": [
+        [
+          {
+            "node": "Enough Content?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enough Content?": {
+      "main": [
+        [
+          {
+            "node": "Gemini - Filter Positive Only",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log: Content Too Short",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gemini - Filter Positive Only",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Gemini - Write 10 Nepali Posts",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini - Filter Positive Only": {
+      "main": [
+        [
+          {
+            "node": "No Positive Content?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Positive Content?": {
+      "main": [
+        [
+          {
+            "node": "Log: No Positive Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gemini - Write 10 Nepali Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini - Write 10 Nepali Posts": {
+      "main": [
+        [
+          {
+            "node": "Parse Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Posts": {
+      "main": [
+        [
+          {
+            "node": "Save Posts to Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Posts to Airtable": {
+      "main": [
+        [
+          {
+            "node": "Mark Source as Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Source as Done": {
+      "main": [
+        [
+          {
+            "node": "Process 3 at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log: No Positive Content": {
+      "main": [
+        [
+          {
+            "node": "Mark Skipped in Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Skipped in Airtable": {
+      "main": [
+        [
+          {
+            "node": "Process 3 at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log: Content Too Short": {
+      "main": [
+        [
+          {
+            "node": "Mark Too Short in Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Too Short in Airtable": {
+      "main": [
+        [
+          {
+            "node": "Process 3 at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "versionId": "fixed-loop-output-2025",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "staticData": null,
+  "id": "lb2vdmT1LIdOlBIP"
+}
