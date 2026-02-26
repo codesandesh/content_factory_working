@@ -135,7 +135,7 @@
       ],
       "credentials": {
         "googlePalmApi": {
-          "id": "igaSdthsiO1WHIs5",
+          "id": "vbhLIH8I52VXHFtc",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -368,7 +368,7 @@
       ],
       "credentials": {
         "googlePalmApi": {
-          "id": "igaSdthsiO1WHIs5",
+          "id": "vbhLIH8I52VXHFtc",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -430,7 +430,7 @@
             "Created_Date": "={{ $now.format('yyyy-MM-dd') }}",
             "Video Production Queue": "pending",
             "Video RENDERS": "",
-            "Target_Platforms": "={{ $json.Target_Platforms }}"
+            "Target_Platforms ": "={{ $json.Target_Platforms }}"
           }
         },
         "options": {
@@ -561,7 +561,7 @@
           "parameters": [
             {
               "name": "message",
-              "value": "={{ $json.Hook }}\\n\\n{{ $json.Main_Content }}\\n\\n{{ $json.CTA }}"
+              "value": "={{ $json.Hook + \"\\n\\n\" + $json.Main_Content + \"\\n\\n\" + $json['CTA '] }}\n"
             },
             {
               "name": "access_token",
@@ -1064,7 +1064,7 @@
     "executionOrder": "v1",
     "availableInMCP": false
   },
-  "versionId": "a97f1238-fca9-4161-a411-353a1f6e72b0",
+  "versionId": "d1d1365d-fadb-4893-bf9d-db269f1bd549",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "1757b09cdae31473f3f31f6dcf3811ad0ffc8ba919e2d551dba14df63ed44210"
