@@ -1,0 +1,393 @@
+{
+  "name": "Viral Pipeline – Stage 1 – Reddit AI/ML Discovery 2026",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "id": "stage1-trigger",
+      "name": "Every 12 hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const subreddits = ['Artificial', 'ArtificialInteligence', 'OpenAI', 'MachineLearning', 'singularity'];\nconst urls = subreddits.map(sub => ({\n  url: `https://www.reddit.com/r/${sub}/top.json?t=day&limit=12`\n}));\nreturn [{ json: { startUrls: urls } }];"
+      },
+      "id": "generate-urls",
+      "name": "Generate Reddit JSON URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.apify.com/v2/acts/trudax~reddit-scraper-lite/runs?token={{ $env.APIFY_API_TOKEN }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ startUrls: $json.startUrls, maxItems: 80, skipComments: true, maxPostCount: 15, proxy: { useApifyProxy: true } }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "start-apify",
+      "name": "Start Apify Reddit Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
+      "onError": "continue"
+    },
+    {
+      "parameters": {
+        "amount": 60
+      },
+      "id": "wait-apify",
+      "name": "Wait 60 seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.apify.com/v2/actor-runs/{{ $node[\"Start Apify Reddit Scraper\"].json[\"data\"][\"id\"] }}?token={{ $env.APIFY_API_TOKEN }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "check-status",
+      "name": "Check Scraper Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        300
+      ],
+      "onError": "continue"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.data.status }}",
+              "value2": "SUCCEEDED"
+            }
+          ]
+        }
+      },
+      "id": "if-succeeded",
+      "name": "Run Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.apify.com/v2/datasets/{{ $json[\"Check Scraper Status\"].json[\"data\"][\"defaultDatasetId\"] }}/items?token={{ $env.APIFY_API_TOKEN }}&limit=120"
+      },
+      "id": "fetch-dataset",
+      "name": "Fetch Dataset Items",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        220
+      ],
+      "onError": "continue"
+    },
+    {
+      "parameters": {
+        "jsCode": "const seenIds = new Set();\nconst posts = [];\n\nfor (const item of $input.all()) {\n  let records = Array.isArray(item.json) ? item.json : [item.json];\n  for (const post of records) {\n    if (!post || post.dataType !== 'post') continue;\n    const id = post.id || post.postId;\n    if (seenIds.has(id)) continue;\n    seenIds.add(id);\n\n    posts.push({\n      json: {\n        title: (post.title || '').trim(),\n        content: ((post.title || '') + '\\n\\n' + (post.selftext || post.body || '')).trim().substring(0, 1400),\n        post_id: id,\n        url: post.permalink ? `https://reddit.com${post.permalink.startsWith('/') ? post.permalink : '/' + post.permalink}` : post.url || '',\n        likes: post.ups || post.score || 0,\n        comments: post.num_comments || 0,\n        subreddit: post.subreddit || post.communityName?.replace('r/', '') || 'unknown',\n        created_utc: post.created_utc || post.createdAt || null\n      }\n    });\n  }\n}\n\nreturn posts.length > 0 ? posts : [{ json: { _skip: true, reason: 'no valid posts' } }];"
+      },
+      "id": "parse-posts",
+      "name": "Parse & Deduplicate Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Quick check: Is this Reddit post related to AI, machine learning, large language models, automation, computer vision, or emerging tech?\n\nTitle: {{ $json.title }}\nContent snippet: {{ $json.content.substring(0,900) }}\nSubreddit: {{ $json.subreddit }}\n\nReturn **only** clean JSON object – no markdown, no extra text:\n{\n  \"relevant\": true/false,\n  \"relevance_score\": 0–100,\n  \"viral_potential\": 0–100\n}"
+      },
+      "id": "gemini-filter",
+      "name": "Gemini – Relevance Check",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        2000,
+        220
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "gemini-model",
+      "name": "Gemini Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        380
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "gemini-cred-2026-placeholder",
+          "name": "Google Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResp = $input.first()?.json?.text || '{}';\nlet analysis = {};\ntry {\n  analysis = JSON.parse(geminiResp);\n} catch (e) {\n  try {\n    const match = geminiResp.match(/\\{[^]*\\}/);\n    if (match) analysis = JSON.parse(match[0]);\n  } catch {}\n}\n\nconst original = $input.all()[0]?.json || {};\n\nif (original._skip) return [{ json: original }];\n\nreturn [{\n  json: {\n    ...original,\n    is_relevant: analysis.relevant === true,\n    relevance_score: Number(analysis.relevance_score) || 0,\n    viral_potential: Number(analysis.viral_potential) || 0\n  }\n}];"
+      },
+      "id": "merge-analysis",
+      "name": "Merge Post + Gemini Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2220,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().filter(item => {\n  const d = item.json;\n  if (d._skip) return false;\n  return d.is_relevant || d.relevance_score >= 65 || d.viral_potential >= 45;\n});"
+      },
+      "id": "filter-good",
+      "name": "Keep Only High-Quality",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2440,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_VIRAL_CONTENT_TABLE }}",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $json.title.substring(0, 140) || 'Untitled Post' }}",
+            "Post_ID": "={{ $json.post_id }}",
+            "Platform": "Reddit",
+            "Post_URL": "={{ $json.url }}",
+            "Content": "={{ $json.content }}",
+            "Subreddit": "={{ $json.subreddit }}",
+            "Likes": "={{ $json.likes }}",
+            "Comments": "={{ $json.comments }}",
+            "Relevance_Score": "={{ $json.relevance_score }}",
+            "Viral_Potential": "={{ $json.viral_potential }}",
+            "Status": "Generate Script",
+            "Created_Date": "={{ $now.format('yyyy-MM-dd') }}"
+          }
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "store-airtable",
+      "name": "Save to Viral Content Table",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        2660,
+        220
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-pat-2026-placeholder",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 12 hours": {
+      "main": [
+        [
+          {
+            "node": "Generate Reddit JSON URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Reddit JSON URLs": {
+      "main": [
+        [
+          {
+            "node": "Start Apify Reddit Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Apify Reddit Scraper": {
+      "main": [
+        [
+          {
+            "node": "Wait 60 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 60 seconds": {
+      "main": [
+        [
+          {
+            "node": "Check Scraper Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Scraper Status": {
+      "main": [
+        [
+          {
+            "node": "Run Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Dataset Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 60 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Dataset Items": {
+      "main": [
+        [
+          {
+            "node": "Parse & Deduplicate Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Deduplicate Posts": {
+      "main": [
+        [
+          {
+            "node": "Gemini – Relevance Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini – Relevance Check": {
+      "main": [
+        [
+          {
+            "node": "Merge Post + Gemini Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Post + Gemini Analysis": {
+      "main": [
+        [
+          {
+            "node": "Keep Only High-Quality",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep Only High-Quality": {
+      "main": [
+        [
+          {
+            "node": "Save to Viral Content Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "UTC"
+  },
+  "versionId": "stage1-final-v3-2026-02-27",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a7f9d2e1-4b3c-4e8a-9f1d-6c8e2b5f3a1d"
+  },
+  "id": "viral-stage1-reddit-2026",
+  "tags": []
+}

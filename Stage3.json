@@ -1,0 +1,297 @@
+{
+  "name": "Stage 3 \u2013 Auto Post Facebook & LinkedIn",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}",
+          "mode": "id"
+        },
+        "options": {
+          "filterByFormula": "{Status} = 'Approved'",
+          "maxRecords": 20
+        }
+      },
+      "id": "node-read",
+      "name": "Read Approved Scripts",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        460,
+        560
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "rWrYEtYQAEpY7zli",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nif (!items || items.length === 0) {\n  return [{ json: { _skip: true } }];\n}\n\nconst approved = items.filter(i => (i.json.Status || '').trim() === 'Approved');\n\nif (approved.length === 0) {\n  return [{ json: { _skip: true } }];\n}\n\n// Pick first group by Source_Content_ID\nlet targetId = null;\nfor (const i of approved) {\n  const sid = Array.isArray(i.json.Source_Content_ID)\n    ? i.json.Source_Content_ID[0]\n    : i.json.Source_Content_ID;\n  if (sid) { targetId = sid; break; }\n}\nif (!targetId) targetId = approved[0].json.id;\n\nconst group = approved.filter(i => {\n  const sid = Array.isArray(i.json.Source_Content_ID)\n    ? i.json.Source_Content_ID[0]\n    : i.json.Source_Content_ID;\n  return sid === targetId || (!sid && i.json.id === targetId);\n});\n\nreturn group.map(item => {\n  let plat = item.json['Target_Platforms '] || item.json['Target_Platforms'] || '';\n  if (Array.isArray(plat)) plat = plat.join(',');\n  plat = plat.toLowerCase();\n\n  const title = (item.json.Script_Title || '').toLowerCase();\n  let platform = 'linkedin';\n  if (plat.includes('face') || plat.includes('fb') || title.includes('facebook')) {\n    platform = 'facebook';\n  }\n\n  return {\n    json: {\n      ...item.json,\n      _target_platform: platform,\n      _airtable_id: item.json.id\n    }\n  };\n});"
+      },
+      "id": "node-filter",
+      "name": "Filter and Group",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json._target_platform }}",
+              "value2": "facebook"
+            }
+          ]
+        }
+      },
+      "id": "node-if-fb",
+      "name": "Is Facebook?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        900,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v20.0/{{ $env.FACEBOOK_PAGE_ID }}/feed",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $json.Hook + '\\n\\n' + $json.Main_Content + '\\n\\n' + ($json['CTA '] || $json.CTA || '') }}"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $env.FACEBOOK_PAGE_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-post-fb",
+      "name": "Post to Facebook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1120,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.Hook + '\\n\\n' + $json.Main_Content + '\\n\\n' + ($json['CTA '] || $json.CTA || '') }}",
+        "additionalFields": {}
+      },
+      "id": "node-post-li",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        700
+      ],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "EjVjU4yvzE7uSE2U",
+          "name": "LinkedIn account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Posted",
+            "id": "={{ $('Filter and Group').item.json._airtable_id }}"
+          },
+          "matchingColumns": [
+            "id"
+          ]
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "node-mark-fb",
+      "name": "Mark Posted Facebook",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        1340,
+        440
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "rWrYEtYQAEpY7zli",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_TABLE_SCRIPT_LIB }}",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Posted",
+            "id": "={{ $('Filter and Group').item.json._airtable_id }}"
+          },
+          "matchingColumns": [
+            "id"
+          ]
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "node-mark-li",
+      "name": "Mark Posted LinkedIn",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        1340,
+        700
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "rWrYEtYQAEpY7zli",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Approved Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Approved Scripts": {
+      "main": [
+        [
+          {
+            "node": "Filter and Group",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter and Group": {
+      "main": [
+        [
+          {
+            "node": "Is Facebook?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Facebook?": {
+      "main": [
+        [
+          {
+            "node": "Post to Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Facebook": {
+      "main": [
+        [
+          {
+            "node": "Mark Posted Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Mark Posted LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

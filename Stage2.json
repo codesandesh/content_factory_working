@@ -1,0 +1,259 @@
+{
+  "name": "Viral Pipeline – Stage 2 – Script Generation 2026",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 4
+            }
+          ]
+        }
+      },
+      "id": "stage2-trigger",
+      "name": "Every 4 hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_VIRAL_CONTENT_TABLE }}",
+          "mode": "id"
+        },
+        "options": {
+          "filterByFormula": "{Status} = 'Generate Script'",
+          "maxRecords": 15
+        }
+      },
+      "id": "read-pending",
+      "name": "Find Posts to Script",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        460,
+        400
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-pat-2026-placeholder",
+          "name": "Airtable PAT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "You are Ujjwal Roy, 32-year-old AI founder & CEO (ScaleBuild AI).\nWrite concise, confident, opinionated first-person post (max 90 words, 2 short paragraphs max).\nStart with strong, non-generic hook.\nAvoid buzzwords and filler.\nNews: Title: {{ $json.Name }}\nContent: {{ $json.Content }}\nSubreddit: {{ $json.Subreddit }}\nUpvotes: {{ $json.Likes }}\n\nReturn ONLY valid JSON – no markdown:\n{\n  \"platform\": \"LinkedIn\",\n  \"title\": \"...\",\n  \"hook\": \"...\",\n  \"body\": \"...\",\n  \"cta\": \"...\"\n}"
+      },
+      "id": "gemini-linkedin",
+      "name": "Gemini – LinkedIn Script",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        680,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "You are Ujjwal Roy, 32-year-old AI founder & CEO.\nWrite direct, conversational first-person post for Facebook (max 90 words, 2 paragraphs).\nStrong hook first.\nNews: Title: {{ $json.Name }}\nContent: {{ $json.Content }}\nSubreddit: {{ $json.Subreddit }}\nUpvotes: {{ $json.Likes }}\n\nReturn ONLY valid JSON – no markdown:\n{\n  \"platform\": \"Facebook\",\n  \"title\": \"...\",\n  \"hook\": \"...\",\n  \"body\": \"...\",\n  \"cta\": \"...\"\n}"
+      },
+      "id": "gemini-facebook",
+      "name": "Gemini – Facebook Script",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        680,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "mergeByPosition"
+      },
+      "id": "merge-gemini",
+      "name": "Merge Both Scripts",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        900,
+        420
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "gemini-model",
+      "name": "Gemini Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        900,
+        580
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "gemini-cred-2026-placeholder",
+          "name": "Google Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\n\nfor (const item of $input.all()) {\n  let raw = item.json.text || item.json.output || '{}';\n  let parsed = {};\n  try {\n    parsed = JSON.parse(raw);\n  } catch (e) {\n    const match = raw.match(/\\{[^]*\\}/);\n    if (match) {\n      try { parsed = JSON.parse(match[0]); } catch {}\n    }\n  }\n\n  if (!parsed.title || !parsed.platform) continue;\n\n  const sourceRecord = $(\"Find Posts to Script\").first()?.json || {};\n\n  results.push({\n    json: {\n      Name: parsed.title,\n      Source_Content: [sourceRecord.id || sourceRecord.Name || ''],\n      Platform: parsed.platform,\n      Hook: parsed.hook || '',\n      Body: parsed.body || '',\n      CTA: parsed.cta || '',\n      Status: 'Draft',\n      Created_Date: $now.format('yyyy-MM-dd')\n    }\n  });\n}\n\nreturn results.length > 0 ? results : [{ json: { _skip: true } }];"
+      },
+      "id": "parse-scripts",
+      "name": "Parse & Prepare Scripts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $env.AT_SCRIPT_LIBRARY_TABLE }}",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $json.Name }}",
+            "Source_Content": "={{ $json.Source_Content }}",
+            "Platform": "={{ $json.Platform }}",
+            "Hook": "={{ $json.Hook }}",
+            "Body": "={{ $json.Body }}",
+            "CTA": "={{ $json.CTA }}",
+            "Status": "={{ $json.Status }}",
+            "Created_Date": "={{ $json.Created_Date }}"
+          }
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "store-scripts",
+      "name": "Save to Script Library",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        1340,
+        420
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-pat-2026-placeholder",
+          "name": "Airtable PAT"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 4 hours": {
+      "main": [
+        [
+          {
+            "node": "Find Posts to Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Posts to Script": {
+      "main": [
+        [
+          {
+            "node": "Gemini – LinkedIn Script",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gemini – Facebook Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini – LinkedIn Script": {
+      "main": [
+        [
+          {
+            "node": "Merge Both Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini – Facebook Script": {
+      "main": [
+        [
+          {
+            "node": "Merge Both Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Both Scripts": {
+      "main": [
+        [
+          {
+            "node": "Parse & Prepare Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Prepare Scripts": {
+      "main": [
+        [
+          {
+            "node": "Save to Script Library",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "UTC"
+  },
+  "versionId": "stage2-final-v1-2026-02-27",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b8e1c3f2-5d4a-4f9b-8c2e-7d9f3a6e4b2c"
+  },
+  "id": "viral-stage2-scripts-2026",
+  "tags": []
+}
